@@ -1,0 +1,29 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environments
+env/
+venv/
+
+# macOS system files
+.DS_Store
+
+# Logs
+*.log
+
+# Compiled files
+*.pyc
+*.pyo
+*.pyd
+
+# Environment variables
+.env
+
+# Streamlit cache
+.streamlit/
+
+# IDE-specific files (e.g., VS Code)
+.vscode/
+.idea/

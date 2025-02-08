@@ -1,0 +1,10 @@
+streamlit
+streamlit-extras
+numpy
+pandas
+plotly
+openpyxl
+scipy
+statsmodels
+networkx
+statsmodels
