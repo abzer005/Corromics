@@ -21,9 +21,6 @@ venv/
 # Environment variables
 .env
 
-# Streamlit cache
-.streamlit/
-
 # IDE-specific files (e.g., VS Code)
 .vscode/
 .idea/
