@@ -10,24 +10,18 @@ a = Analysis(
         # Add paths to specific data files from the environment
         ("./myenv/Lib/site-packages/altair/vegalite/v5/schema/vega-lite-schema.json", "./altair/vegalite/v5/schema/"),
         ("./myenv/Lib/site-packages/streamlit", "./streamlit/"),
+        ("./myenv/Lib/site-packages/streamlit-extras", "./streamlit-extras/"),
         ("./myenv/Lib/site-packages/importlib_metadata", "./importlib_metadata/"),
         ("./myenv/Lib/site-packages/streamlit/static", "./streamlit/static"),
         ("./myenv/Lib/site-packages/streamlit/runtime", "./streamlit/runtime"),
         ("./myenv/Lib/site-packages/plotly", "./plotly/"),
-        ("./myenv/Lib/site-packages/pingouin", "./pingouin/"),
-        ("./myenv/Lib/site-packages/kaleido", "./kaleido/"),
         ("./myenv/Lib/site-packages/openpyxl", "./openpyxl/"),
-        ("./myenv/Lib/site-packages/scikit_posthocs", "./scikit_posthocs/"),
-        ("./myenv/Lib/site-packages/scikit_bio", "./scikit_bio/"),  # Added scikit-bio
         ("./myenv/Lib/site-packages/gnpsdata", "./gnpsdata/"),
-        ("./myenv/Lib/site-packages/sklearn", "./sklearn/"),
         ("./myenv/Lib/site-packages/networkx", "./networkx/"),
-        ("./myenv/Lib/site-packages/tabulate", "./tabulate/"),
         ("./myenv/Lib/site-packages/pandas_flavor", "./pandas_flavor/"),
         ("./myenv/Lib/site-packages/numpy", "./numpy/"),
         ("./myenv/Lib/site-packages/scipy", "./scipy/"),  # Added scipy
-        ("./myenv/Lib/site-packages/streamlit_agraph", "./streamlit_agraph/"),
-        ("./myenv/Lib/site-packages/pygraphviz", "./pygraphviz/"),
+        
     ],
     hiddenimports=[],  # Specify hidden imports if needed
     hookspath=['./hooks'],  # Custom hook path if you have specific hooks
@@ -49,7 +43,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='ChemProp2-App',  # Name of the executable
+    name='Corromics',  # Name of the executable
     debug=False,  # Set to True to enable debug logs
     bootloader_ignore_signals=False,
     strip=False,
