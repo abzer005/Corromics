@@ -1,23 +1,12 @@
 import streamlit as st
 from src.common import *
 import pandas as pd
-<<<<<<< HEAD
-
-=======
-import locale
->>>>>>> b669908 (FDR added)
 from streamlit.components.v1 import html
 
 page_setup()
 
 st.title('CORROMICS')
 
-<<<<<<< HEAD
-=======
-# Set locale to English (US) for number formatting
-locale.setlocale(locale.LC_NUMERIC, 'en_US.UTF-8')
-
->>>>>>> b669908 (FDR added)
 c1, c2, c3 = st.columns([2, 2, 2])  # Adjust column ratios for centering
 with c2:
     try:
@@ -88,34 +77,10 @@ Example metadata table:
 # Output Files
 st.subheader('Output File Information')
 st.write("""
-     
-<<<<<<< HEAD
-Upon processing your data, Corromics generates an edge file as an output in CSV format. 
- example, 
-""")
-
-st.write("""
-### Integration with Cytoscape
-- You can download the results as a **zip file** containing the required **GraphML** and **style files** for Cytoscape visualization.
-- To use the output in Cytoscape:
-  1. Open the **GraphML** file in Cytoscape.
-  2. Import the **style file**:
-     - Navigate to **File > Import > Styles from File**.
-     - Select and upload the `.xml` style file.
-  3. Apply the imported style:
-     - Go to the **Styles** panel in Cytoscape.  
-     - By default, the style will be set to **default**.  
-     - Use the drop-down menu to select the uploaded style (it may appear as **default_0** or another variation).  
-     - The visualization will update based on the selected style.
-        
+- Upon processing your data, Corromics generates an edge file as an output in CSV format. 
+- You can download the result as a **GraphML** file as well for Cytoscape visualization.  
          """)
 
-=======
-- Upon processing your data, Corromics generates an edge file as an output in CSV format. 
-- You can download the result as a **GraphML** file as well for Cytoscape visualization.        
-""")
-
->>>>>>> b669908 (FDR added)
 # Subheader and Interactive Features
 st.subheader('About the App Elements')
 st.markdown("""
@@ -147,7 +112,7 @@ st.markdown("""
             We welcome your feedback and suggestions to improve Corromics. Please feel free to create an issue on our GitHub repository to share your thoughts or report any issues you encounter. 
             Your input is invaluable in making the tool better for everyone.
 
-            [Create an Issue on GitHub](https://github.com/abzer005/Omics-Linker/issues/new)
+            [Create an Issue on GitHub](https://github.com/abzer005/Corromics/issues/new)
 """)
 
 # Contribution and Follow Us
