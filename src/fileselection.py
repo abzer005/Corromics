@@ -33,16 +33,6 @@ def load_example():
     Load example datasets into Streamlit's session state.
     """
     # Reset session state data
-<<<<<<< HEAD
-    for key in ['ft', 'md', 'omics_ft', 'omics_md']:
-        st.session_state[key] = None
-        
-    st.session_state['ft'] = open_df("example-data/Normalised_Quant_table.csv").set_index("feature_ID")
-    st.session_state['md'] = open_df("example-data/metadata_metabolomics.csv").set_index("filename")
-    st.session_state['omics_ft'] = open_df("example-data/asv_16s_table_with_taxonomic_levels.csv").set_index("feature_ID")
-    st.session_state['omics_md'] = open_df("example-data/asv_16s_metadata.csv").set_index("filename")
-
-=======
     for key in ['ft', 'md', 'omics_ft']:
         st.session_state[key] = None
         
@@ -50,7 +40,6 @@ def load_example():
     st.session_state['md'] = open_df("example-data/metadata_example.csv").set_index("filename")
     st.session_state['omics_ft'] = open_df("example-data/asv_16s_table_with_taxonomic_levels.csv").set_index("feature_ID")
     
->>>>>>> b669908 (FDR added)
 def load_ft(ft_file):
     """
     Load and process the feature table.
@@ -78,27 +67,13 @@ def load_md(md_file):
     md = open_df(md_file)
     return md
 
-<<<<<<< HEAD
-def load_nw(omics_ft_file):
-=======
 def load_omics_ft(omics_ft_file):
->>>>>>> b669908 (FDR added)
     """
     Load and process the quantification table from proteomics/genomics study. 
     """
     omics_ft = open_df(omics_ft_file)
     return omics_ft
 
-<<<<<<< HEAD
-def load_annotation(omics_md_file):
-    """
-    Load and process the metadata from proteomics/genomics study.
-    """
-    omics_md = open_df(omics_md_file)
-    return omics_md
-
-=======
->>>>>>> b669908 (FDR added)
 def display_dataframe_with_toggle(df_key, display_name):
     if df_key in st.session_state and isinstance(st.session_state[df_key], pd.DataFrame):
         st.write(f"### {display_name}")
@@ -122,10 +97,6 @@ def display_dataframe_with_toggle(df_key, display_name):
 @st.cache_data
 def clean_up_md(md):
     md = md.copy()
-<<<<<<< HEAD
-    md = md.dropna(how="all")
-    md.index = [name.strip() for name in md.index]
-=======
 
      # Remove rows that have NA values in ATTRIBUTE_Corromics_filenam
     md = md.dropna(subset=['ATTRIBUTE_Corromics_filename'])
@@ -134,15 +105,10 @@ def clean_up_md(md):
     md = md.dropna(how="all")
     md.index = [name.strip() for name in md.index]
 
->>>>>>> b669908 (FDR added)
     # for each col in md
     # 1) removing the spaces (if any)
     # 2) replace the spaces (in the middle) to underscore
     # 3) converting them all to UPPERCASE
-<<<<<<< HEAD
-=======
-
->>>>>>> b669908 (FDR added)
     for col in md.columns:
         if md[col].dtype == str:
             md[col] = [item.strip().replace(" ", "_").upper() for item in md[col]]
@@ -151,11 +117,7 @@ def clean_up_md(md):
         re.sub(r"\.mzxml|\.mzml", "", i, flags=re.IGNORECASE).replace(" Peak area", "")
         for i in md.index
     ]
-<<<<<<< HEAD
-    #md.index = [i.replace(".mzXML", "").replace(".mzML", "").replace(" Peak area", "") for i in md.index]
-=======
     
->>>>>>> b669908 (FDR added)
     return md
 
 
@@ -203,15 +165,6 @@ def clean_up_omics_md(md):
         for i in md.index
     ]
 
-<<<<<<< HEAD
-    # Keep taxonomic columns if they exist in session state
-    #taxonomic_columns = st.session_state.get("taxonomic_order", [])
-    #if taxonomic_columns:
-        # Ensure we keep only relevant taxonomic columns
-    #    md = md[taxonomic_columns + [col for col in md.columns if col not in taxonomic_columns]]
-
-=======
->>>>>>> b669908 (FDR added)
     return md
 
 
@@ -255,25 +208,16 @@ def clean_up_omics_ft(ft):
 @st.cache_data
 def check_columns(md, ft):
     if sorted(ft.columns) != sorted(md.index):
-<<<<<<< HEAD
-        st.warning("Not all files are present in both meta data & feature table.")
-=======
         st.warning("Not all files are present in both metadata & feature table.")
->>>>>>> b669908 (FDR added)
         
         # Find and remove columns in 'ft' that are not in the index of 'md'
         ft_cols_not_in_md = [col for col in ft.columns if col not in md.index]
         if ft_cols_not_in_md:
             st.warning(
-<<<<<<< HEAD
-                f"These {len(ft_cols_not_in_md)} columns of feature table are not present in metadata table and will be removed:\n{', '.join(ft_cols_not_in_md)}"
-            )
-=======
                 f"These {len(ft_cols_not_in_md)} columns of feature table are not present in metadata column **'ATTRIBUTE_Corromics_filename'** and will be removed:\n\n"
                 + f"\n\n{', '.join(ft_cols_not_in_md)}"
                 )
 
->>>>>>> b669908 (FDR added)
             ft = ft.drop(columns=ft_cols_not_in_md)
         
         # Find and remove rows in 'md' that are not in the columns of 'ft'
@@ -285,21 +229,6 @@ def check_columns(md, ft):
             md = md.drop(md_rows_not_in_ft)
     return md, ft
 
-<<<<<<< HEAD
-
-# @st.cache_data
-# def inside_levels(df):
-#     df = pd.DataFrame(
-#         {
-#             "ATTRIBUTES": df.columns,
-#             "LEVELS": [sorted(set(df[col].dropna().astype(str).to_list())) for col in df],
-#             "COUNTS": [df[col].value_counts().to_list() for col in df],
-#         }
-#     )
-#     return df
-
-=======
->>>>>>> b669908 (FDR added)
 @st.cache_data
 def inside_levels(df):
 
@@ -365,11 +294,6 @@ def order_taxonomic_columns(relevant_columns):
     ordered_columns = sorted(relevant_columns, key=get_order)
     return ordered_columns
 
-<<<<<<< HEAD
-
-
-=======
->>>>>>> b669908 (FDR added)
 @st.cache_data
 def bin_by_taxonomic_level(df, taxonomic_level):
     """
@@ -405,18 +329,13 @@ def bin_by_taxonomic_level(df, taxonomic_level):
 
     # Add 'Overall_sum' column
     binned_df["Overall_sum"] = binned_df[numeric_columns].sum(axis=1)
-<<<<<<< HEAD
-=======
    
->>>>>>> b669908 (FDR added)
     binned_df.reset_index(inplace=True)
     binned_df.set_index(group_column, inplace=True)
 
     return binned_df
 
 
-<<<<<<< HEAD
-=======
 # Function to check for empty rows, rows with a singular same value, or rows full of zeros
 
 def check_rows(df, exclude_cols=['index', 'overall_sum']):
@@ -434,5 +353,4 @@ def check_rows(df, exclude_cols=['index', 'overall_sum']):
     zero_rows = df[df[numeric_cols].fillna(0).sum(axis=1) == 0]
 
     return empty_rows, singular_value_rows, zero_rows
->>>>>>> b669908 (FDR added)
 

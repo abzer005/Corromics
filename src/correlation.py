@@ -5,12 +5,9 @@ import numpy as np
 from scipy.stats import pearsonr
 from statsmodels.stats.multitest import multipletests
 from multiprocessing import Pool
-<<<<<<< HEAD
-=======
 import psutil
 import threading
 
->>>>>>> b669908 (FDR added)
 #import cupy as cp
 
 def combine_dataframes(df1, df2):
@@ -33,65 +30,6 @@ def combine_dataframes(df1, df2):
     return combined
 
 
-<<<<<<< HEAD
-# def calculate_correlations_gpu(df, metabolome_ft, genome_ft):
-#     """
-#     Faster correlation calculation using GPUs.
-#     """
-#     transposed_df = df.T
-#     length_metabolome = metabolome_ft.shape[0]
-#     length_genome = genome_ft.shape[0]
-
-#     # Convert data to CuPy arrays
-#     metabolomics = cp.asarray(transposed_df.iloc[:, :length_metabolome].values)
-#     asvs = cp.asarray(transposed_df.iloc[:, length_metabolome:length_metabolome + length_genome].values)
-
-#     # Standardize data
-#     metabolomics = (metabolomics - cp.mean(metabolomics, axis=0)) / cp.std(metabolomics, axis=0)
-#     asvs = (asvs - cp.mean(asvs, axis=0)) / cp.std(asvs, axis=0)
-
-#     # Calculate correlation matrix
-#     correlation_matrix = cp.dot(asvs.T, metabolomics) / (asvs.shape[0] - 1)
-#     return cp.asnumpy(correlation_matrix)  # Convert back to NumPy
-
-
-# def calculate_metabolite_asv_correlations(df, metabolome_ft, genome_ft):
-
-#     transposed_df = df.T
-#     length_metabolome = metabolome_ft.shape[0]
-#     length_genome = genome_ft.shape[0]
-
-#     # Initialize an empty list to store results
-#     correlation_results = []
-
-#     # Define ranges for metabolites and ASVs
-#     metabolite_columns = range(length_metabolome)
-#     asv_columns = range(length_genome, length_metabolome + length_genome)
-
-#     # Loop over each ASV column
-#     for asv_index in asv_columns:
-#         asv_column = transposed_df.iloc[:, asv_index]
-
-#         # Calculate correlations for the current ASV column with all metabolite columns
-#         correlations = np.array([
-#             pearsonr(asv_column, transposed_df.iloc[:, metabolite_index])
-#             for metabolite_index in metabolite_columns
-#         ])
-
-#         # Extract estimates and p-values into a matrix
-#         estimates = correlations[:, 0]  # Correlation coefficients
-#         p_values = correlations[:, 1]  # P-values
-#         result_matrix = np.column_stack((estimates, p_values))
-
-#         # Append the matrix to the list
-#         correlation_results.append(result_matrix)
-
-
-#     return transposed_df, correlation_results
-
-
-=======
->>>>>>> b669908 (FDR added)
 def calculate_single_asv(asv_index, metabolomics, asvs):
     """
     Compute correlations for a single ASV column.
@@ -116,11 +54,7 @@ def calculate_single_asv(asv_index, metabolomics, asvs):
     return result
     
 
-<<<<<<< HEAD
-def calculate_correlations_parallel(df, metabolome_ft, genome_ft):
-=======
 def calculate_correlations_parallel(df, metabolome_ft, genome_ft, num_workers=4):
->>>>>>> b669908 (FDR added)
     """
     Faster correlation calculation using parallel processing.
     """
@@ -137,11 +71,7 @@ def calculate_correlations_parallel(df, metabolome_ft, genome_ft, num_workers=4)
     asvs = transposed_df.iloc[:, length_metabolome:length_metabolome + length_genome].values
 
     # Use multiprocessing to calculate correlations in parallel
-<<<<<<< HEAD
-    with Pool() as pool:
-=======
     with Pool(processes=num_workers) as pool:
->>>>>>> b669908 (FDR added)
         results = pool.starmap(calculate_single_asv, 
                                [(i, metabolomics, asvs) for i in range(asvs.shape[1])])
         
@@ -223,8 +153,6 @@ def melt_correlation_results(results):
 
     return final_df
 
-<<<<<<< HEAD
-=======
 # Function to estimate the size of the DataFrame in MB
 def estimate_df_size(df):
     return df.memory_usage(deep=True).sum() / (1024 * 1024)  # Convert to MB
@@ -418,4 +346,3 @@ def display_correlation_message(original_edges, filtered_edges):
 
     # Display the Styled Message in Streamlit
     st.markdown(styled_message, unsafe_allow_html=True)
->>>>>>> b669908 (FDR added)
