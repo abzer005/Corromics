@@ -4,6 +4,7 @@ numpy
 pandas
 plotly
 openpyxl
+psutil
 scipy
 statsmodels
 networkx

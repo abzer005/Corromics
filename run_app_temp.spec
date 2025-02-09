@@ -20,6 +20,7 @@ a = Analysis(
         ("./myenv/Lib/site-packages/networkx", "./networkx/"),
         ("./myenv/Lib/site-packages/pandas_flavor", "./pandas_flavor/"),
         ("./myenv/Lib/site-packages/numpy", "./numpy/"),
+        ("./myenv/Lib/site-packages/numpy", "./psutil/"),
         ("./myenv/Lib/site-packages/scipy", "./scipy/"),  # Added scipy
         
     ],
