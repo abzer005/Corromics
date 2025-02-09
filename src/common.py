@@ -50,10 +50,10 @@ def page_setup():
         v_space(1)
         
         try:
-            st.image("https://raw.githubusercontent.com/abzer005/Omics-Linker/main/assets/corromics_full_logo.png",
+            st.image("https://raw.githubusercontent.com/abzer005/Corromics/main/assets/corromics_full_logo.png",
                      use_container_width=True)
         except TypeError:
-            st.image("https://raw.githubusercontent.com/abzer005/Omics-Linker/main/assets/corromics_full_logo.png", 
+            st.image("https://raw.githubusercontent.com/abzer005/Corromics/main/assets/corromics_full_logo.png", 
                      use_column_width=True)
 
 dataframe_names = ("md",
