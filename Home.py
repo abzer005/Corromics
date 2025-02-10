@@ -124,4 +124,4 @@ st.markdown("""
 
 # Optional: Footer
 st.markdown("---")
-st.text("Corromics © 2024")
+st.text("Corromics © 2025")
