@@ -6,6 +6,7 @@ datas = []
 datas += copy_metadata("streamlit")
 datas += copy_metadata("streamlit-extras")
 datas += copy_metadata("numpy")
+datas += copy_metadata("pandas")
 datas += copy_metadata("pandas_flavor")
 datas += copy_metadata("plotly")
 datas += copy_metadata("openpyxl")

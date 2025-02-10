@@ -16,7 +16,7 @@ a = Analysis(
     ],
     hookspath=['./hooks'],
     runtime_hooks=[],
-    excludes=[],
+    excludes=['tkinter', 'tests', 'pytest'],
     noarchive=False,
 )
 
