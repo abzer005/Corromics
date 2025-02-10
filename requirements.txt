@@ -2,10 +2,10 @@ streamlit
 streamlit-extras
 numpy
 pandas
+pandas_flavor
 plotly
 openpyxl
 psutil
 scipy
 statsmodels
 networkx
-statsmodels
