@@ -1,8 +1,15 @@
-[theme]
-base="light"
-
 [global]
 developmentMode = false
 
 [server]
-maxUploadSize=512
+headless = true
+port = 8501
+enableCORS = false
+maxUploadSize = 512
+
+[theme]
+base = "light"
+primaryColor = "#0A74DA"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F0F2F6"
+textColor = "#000000"

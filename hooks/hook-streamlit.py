@@ -4,7 +4,7 @@ datas = []
 
 # Include metadata for all required packages
 datas += copy_metadata("streamlit")
-datas += copy_metadata("extras")
+datas += copy_metadata("streamlit-extras")
 datas += copy_metadata("numpy")
 datas += copy_metadata("pandas_flavor")
 datas += copy_metadata("plotly")
