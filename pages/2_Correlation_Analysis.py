@@ -141,12 +141,23 @@ if 'metabolome_ft' in st.session_state and 'binned_omics_table' in st.session_st
     st.session_state['decoy_dataframe'] = decoy_df
 
     #Give the time message to the user
-    estimate_run_time(met_ft, gen_ft)
+    st.session_state['no_correlations'] = estimate_run_time(met_ft, gen_ft)
 
 else:
     st.warning("Please input the data in the first page to continue the analysis here")
 
 ######## Run Correlation Analysis -------------------------------------------------------
+st.markdown("<br>", unsafe_allow_html=True)
+st.session_state["method"] = st.radio(
+    "Choose correlation method",
+    options=["pearson", "spearman"],
+    format_func=lambda x: "Pearson (linear relationship)" if x == "pearson" else "Spearman (monotonic relationship)",
+    help="""
+    **Pearson**: Measures linear correlation. Assumes normal distribution.\n
+    **Spearman**: Non-parametric, measures monotonic relationships. Useful when data is not normally distributed.
+    """,
+    horizontal=True
+)
 
 # Custom-Styled "Run Correlation Analysis" Button
 with stylable_container(
@@ -180,23 +191,34 @@ with stylable_container(
 
 # Perform Correlation Analysis Logic
 if all(key in st.session_state for key in ['target_dataframe', 'decoy_dataframe', 'metabolome_ft', 'binned_omics_table', 'target_omics', 'decoy_omics']):
+    
     if run_corr_clicked:
-        st.session_state["processing"] = True  # Set processing flag
 
-        with st.spinner("Calculating correlations..."):
-            st.session_state['target_results'] = calculate_correlations_parallel(
-                st.session_state['target_dataframe'], 
-                st.session_state['metabolome_ft'], 
-                st.session_state['target_omics']
-            )
-            st.session_state['decoy_results'] = calculate_correlations_parallel(
-                st.session_state['decoy_dataframe'], 
-                st.session_state['metabolome_ft'], 
-                st.session_state['decoy_omics']
-            )
+        # Estimate total number of correlations
+        correlations = st.session_state['no_correlations']
 
-        st.session_state["processing"] = False  # Reset flag when done
-        st.success("✅ Correlation analysis completed!")
+        if correlations >= 1_000_000 and not is_running_locally():
+            st.error("❌ Too many correlations to compute in the cloud environment (≥ 1,000,000).")
+            st.info("💡 This computation is memory intensive. Please clone the app and run it locally"
+            "This helps avoid memory crashes in the cloud environment.")
+        
+        else:
+            st.session_state["processing"] = True  # Set processing flag
+
+            with st.spinner("Calculating correlations..."):
+                st.session_state['target_results'] = calculate_correlations_parallel(
+                    st.session_state['target_dataframe'], 
+                    st.session_state['metabolome_ft'], 
+                    st.session_state['target_omics']
+                )
+                st.session_state['decoy_results'] = calculate_correlations_parallel(
+                    st.session_state['decoy_dataframe'], 
+                    st.session_state['metabolome_ft'], 
+                    st.session_state['decoy_omics']
+                )
+
+            st.session_state["processing"] = False  # Reset flag when done
+            st.success("✅ Correlation analysis completed!")
 
 else:
     st.warning("⚠️ Please input the data first to continue the analysis.")
@@ -238,14 +260,16 @@ if "target_results" in st.session_state and "decoy_results" in st.session_state:
                 mime="text/csv"
             )
     else:
-        st.warning(f"⚠️ The target correlation dataframe is too large to display (**{df_target_size:.1f} MB**). Download it instead.")
+        st.warning(f"⚠️ The correlation dataframes are too large to display (**{df_target_size:.1f} MB**). Download them instead.")
         
-        st.download_button(
-            label="Download Target Correlation Results (CSV)",
-            data=target_csv_data,
-            file_name="target_correlation_results.csv",
-            mime="text/csv"
-        )
+        corr_c1, corr_c2 = st.columns(2)
+        with corr_c1:
+            st.download_button(
+                label="Download Target Correlation Results (CSV)",
+                data=target_csv_data,
+                file_name="target_correlation_results.csv",
+                mime="text/csv"
+            )
 
     if df_decoy_size <= 200:
         with st.expander(f"Correlation Scores of Decoy Dataframe {melted_decoy.shape}"):
@@ -257,14 +281,15 @@ if "target_results" in st.session_state and "decoy_results" in st.session_state:
                 mime="text/csv"
             )
     else:
-        st.warning(f"⚠️ The decoy correlation dataframe is too large to display (**{df_decoy_size:.1f} MB**). Download it instead.")
-
-        st.download_button(
-            label="Download Decoy Correlation Results (CSV)",
-            data=decoy_csv_data,
-            file_name="decoy_correlation_results.csv",
-            mime="text/csv"
-        )
+        if 'corr_c1' not in locals():  # use same row if available
+            corr_c1, corr_c2 = st.columns(2)
+        with corr_c2:
+            st.download_button(
+                label="Download Decoy Correlation Results (CSV)",
+                data=decoy_csv_data,
+                file_name="decoy_correlation_results.csv",
+                mime="text/csv"
+            )
 
 # Add space before FDR analysis
 st.divider()
@@ -320,32 +345,46 @@ if "filtered_target_csv" not in st.session_state:
 if 'Target_scores' in st.session_state and 'Decoy_scores' in st.session_state:
 
     if run_fdr_button_clicked:
-        st.session_state["run_fdr_clicked"] = True  # Store button state         
-        target_scores = st.session_state['Target_scores']
-        decoy_scores = st.session_state['Decoy_scores']
 
-        # Apply Winsorization only to the 'Estimate' column
-        #target_scores['Estimate'] = dynamic_winsorize(target_scores['Estimate'])
-        #decoy_scores['Estimate'] = dynamic_winsorize(decoy_scores['Estimate'])
+        # Estimate total number of correlations
 
-        # Step 1: Calculate FDR Data
-        overall_fdr_table = calculate_fdr(target_scores, 
-                                        decoy_scores,
-                                        score_range=(-1, 1), 
-                                        bin_size=0.001)
-        fig_fdr, fig_histogram = plot_fdr_figures(overall_fdr_table, target_scores, decoy_scores)
+        if st.session_state['no_correlations'] >= 1_000_000 and not is_running_locally():
+            st.error("❌ No correlations was computed for this level")
+            st.info("💡 Please clone the app and run it locally"
+            "This helps avoid memory crashes in the cloud environment.")
+        
+        else:
+            st.session_state["run_fdr_clicked"] = True  # Store button state         
+            target_scores = st.session_state['Target_scores']
+            decoy_scores = st.session_state['Decoy_scores']
 
-        st.session_state["fig_histogram"] = fig_histogram
-        st.session_state["fig_fdr"] = fig_fdr
+            # Apply Winsorization only to the 'Estimate' column
+            #target_scores['Estimate'] = dynamic_winsorize(target_scores['Estimate'])
+            #decoy_scores['Estimate'] = dynamic_winsorize(decoy_scores['Estimate'])
 
-else:
-    st.warning("Please run FDR to continue here")
+            # Step 1: Calculate FDR Data
+            overall_fdr_table = calculate_fdr(target_scores, 
+                                            decoy_scores,
+                                            score_range=(-1, 1), 
+                                            bin_size=0.001)
+            fig_fdr, fig_histogram = plot_fdr_figures(overall_fdr_table, target_scores, decoy_scores)
+
+            st.session_state["fig_histogram"] = fig_histogram
+            st.session_state["fig_fdr"] = fig_fdr
+
+elif not st.session_state["run_fdr_clicked"]:
+    st.info("👈 Click **Run FDR** to begin the analysis.")
     
-if st.session_state["run_fdr_clicked"]:
-
-    st.write('Select the positive and negative cutoffs for the correlation scores based on your FDR-curve')
+if (
+    st.session_state.get("run_fdr_clicked", False)
+    and (
+        st.session_state.get("no_correlations", 0) <= 1_000_000
+        or is_running_locally()
+    )
+):
     st.plotly_chart(st.session_state["fig_histogram"])
     st.plotly_chart(st.session_state["fig_fdr"])
+    st.write('Select the positive and negative cutoffs for the correlation scores based on your FDR-curve')
 
     ######USER DEFINED CUTOFFS----------------------
     # Create two columns for user input
@@ -409,7 +448,8 @@ if st.session_state["run_fdr_clicked"]:
                                                file_name=output_file, 
                                                mime="application/graphml+xml")
 
-
+elif st.session_state.get("run_fdr_clicked", False) and st.session_state.get("no_correlations", 0) >= 1_000_000 and not is_running_locally():
+        st.warning("⚠️ Correlation results exceed 1,000,000 and are disabled in the cloud to prevent crashes.")
 else:
     st.warning("Please run the FDR before further processing")
 

@@ -2,11 +2,16 @@ import streamlit as st
 from .common import *  # Importing common functionalities from the 'common' module
 import pandas as pd
 import numpy as np
-from scipy.stats import pearsonr
+from scipy.stats import pearsonr, spearmanr
 from statsmodels.stats.multitest import multipletests
 from multiprocessing import Pool
 import psutil
-import threading
+import os
+
+def is_running_locally():
+    """Return True if app is running locally (localhost), False if on cloud."""
+    return os.environ.get("REMOTE_ADDR", "") in ("127.0.0.1", "localhost", "0.0.0.0", "")
+
 
 #import cupy as cp
 
@@ -29,12 +34,19 @@ def combine_dataframes(df1, df2):
 
     return combined
 
-
-def calculate_single_asv(asv_index, metabolomics, asvs):
+def calculate_single_asv(asv_index, metabolomics, asvs, method="pearson"):
     """
     Compute correlations for a single ASV column.
     """
-    correlations = np.array([pearsonr(asvs[:, asv_index], metabolomics[:, j]) 
+
+    if method not in ["pearson", "spearman"]:
+        raise ValueError("Method must be 'pearson' or 'spearman'.")
+
+    # Select the appropriate correlation function
+    corr_func = pearsonr if method == "pearson" else spearmanr
+
+     # Compute correlations
+    correlations = np.array([corr_func(asvs[:, asv_index], metabolomics[:, j]) 
                      for j in range(metabolomics.shape[1])
                      ])
     
@@ -52,12 +64,13 @@ def calculate_single_asv(asv_index, metabolomics, asvs):
     result = np.column_stack((correlation_coefficients, p_values, fdr_corrected_p_values, r_squared))
 
     return result
-    
+
 
 def calculate_correlations_parallel(df, metabolome_ft, genome_ft, num_workers=4):
     """
     Faster correlation calculation using parallel processing.
     """
+    method = st.session_state.get("method", "pearson") 
 
     transposed_df = df.T
     length_metabolome = metabolome_ft.shape[0]
@@ -69,11 +82,11 @@ def calculate_correlations_parallel(df, metabolome_ft, genome_ft, num_workers=4)
     # Extract metabolomics and ASV columns
     metabolomics = transposed_df.iloc[:, :length_metabolome].values
     asvs = transposed_df.iloc[:, length_metabolome:length_metabolome + length_genome].values
-
+    
     # Use multiprocessing to calculate correlations in parallel
     with Pool(processes=num_workers) as pool:
         results = pool.starmap(calculate_single_asv, 
-                               [(i, metabolomics, asvs) for i in range(asvs.shape[1])])
+                               [(i, metabolomics, asvs, method) for i in range(asvs.shape[1])])
         
     results_with_indices = {
         asv_names[i]: pd.DataFrame(
