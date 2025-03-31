@@ -69,6 +69,7 @@ URL: http://localhost:8502
 
 The app should open automatically in your default web browser. If it doesn’t, manually paste http://localhost:8502 into your browser.
 
+---
 
 ## Running Corromics After Installation
 Once installed, you don’t need to run the script again. To start Corromics in the future:
