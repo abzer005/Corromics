@@ -8,7 +8,6 @@ Corromics is a web-based application designed to uncover correlation patterns be
 
 Running Corromics in the [cloud](https://corromics.gnps2.org/) has a built-in safeguard: a **limit of 1 million correlations** to prevent crashes. For larger datasets, we **strongly recommend installing and running Corromics locally**, allowing faster performance and access to more computing power directly on your machine.
 
----
 
 ## 🖥️ 1. Windows Users
 
@@ -39,21 +38,14 @@ However, Mac users can easily **build and run Corromics** locally using a simple
 
 ## Installation Steps for Mac
 
-### ✅ Step 1: Download the Installation Script
-
-🔗 [Download `install_corromics.sh`](https://www.functional-metabolomics.com/resources)
-
-This file will typically appear in your **Downloads** folder.
-
----
-
-### ✅ Step 2: Open Terminal and Run the Script
+### ✅ Step 1: Open Terminal and Run the Script
 
 Execute each of the following commands one after the other in the terminal.
 
 ```bash
-# Navigate to your Downloads folder
-cd ~/Downloads
+
+# Get the Installation Script
+wget https://raw.githubusercontent.com/abzer005/Corromics/main/install_corromics.sh -O install_corromics.sh
 
 # Make the script executable
 chmod +x install_corromics.sh
@@ -63,7 +55,7 @@ chmod +x install_corromics.sh
 
 ```
 
-### ✅  Step 3: Launching the App
+### ✅  Step 2: Launching the App
 Once installation is complete, you will see the following message in your terminal:
 
 ```
@@ -78,7 +70,7 @@ URL: http://localhost:8502
 The app should open automatically in your default web browser. If it doesn’t, manually paste http://localhost:8502 into your browser.
 
 
-### Running Corromics After Installation
+## Running Corromics After Installation
 Once installed, you don’t need to run the script again. To start Corromics in the future:
 
 Open Terminal and enter the following commands step by step:
@@ -94,7 +86,7 @@ streamlit run Home.py --server.port 8502 --server.address localhost
 - Launch the app
 
 
-### Closing the App
+## Closing the App
 To stop Corromics, press **Ctrl + C** in the terminal.
 Even if you close the browser, the app keeps running in the background until you stop it from the terminal.
 
