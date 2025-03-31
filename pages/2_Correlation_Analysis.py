@@ -199,8 +199,7 @@ if all(key in st.session_state for key in ['target_dataframe', 'decoy_dataframe'
 
         if correlations >= 1_000_000 and not is_running_locally():
             st.error("❌ Too many correlations to compute in the cloud environment (≥ 1,000,000).")
-            st.info("💡 This computation is memory intensive. Please clone the app and run it locally"
-            "This helps avoid memory crashes in the cloud environment.")
+            st.info("💡 This computation is memory intensive. Please clone the app and run it locally. This helps avoid memory crashes in the cloud environment.")
         
         else:
             st.session_state["processing"] = True  # Set processing flag
@@ -345,16 +344,14 @@ if "filtered_target_csv" not in st.session_state:
 if 'Target_scores' in st.session_state and 'Decoy_scores' in st.session_state:
 
     if run_fdr_button_clicked:
+        st.session_state["run_fdr_clicked"] = True
 
         # Estimate total number of correlations
-
         if st.session_state['no_correlations'] >= 1_000_000 and not is_running_locally():
             st.error("❌ No correlations was computed for this level")
-            st.info("💡 Please clone the app and run it locally"
-            "This helps avoid memory crashes in the cloud environment.")
+            st.info("💡 Please clone or download the app and run it locally. This helps avoid memory crashes in the cloud environment.")
         
-        else:
-            st.session_state["run_fdr_clicked"] = True  # Store button state         
+        else:       
             target_scores = st.session_state['Target_scores']
             decoy_scores = st.session_state['Decoy_scores']
 
