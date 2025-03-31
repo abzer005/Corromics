@@ -118,7 +118,7 @@ st.markdown("""
 # Contribution and Follow Us
 st.subheader("Contribute and Follow Us")
 st.markdown("""
-- Interested in contributing? Check out the [GitHub page](https://github.com/abzer005).
+- Interested in contributing? Check out the [GitHub page](https://github.com/abzer005/Corromics).
 - For more about our work, visit our [lab's GitHub page](https://github.com/Functional-Metabolomics-Lab).
 """)
 

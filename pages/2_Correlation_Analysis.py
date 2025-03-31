@@ -373,7 +373,7 @@ if 'Target_scores' in st.session_state and 'Decoy_scores' in st.session_state:
             st.session_state["fig_fdr"] = fig_fdr
 
 elif not st.session_state["run_fdr_clicked"]:
-    st.info("👈 Click **Run FDR** to begin the analysis.")
+    st.info("👈 Click **Apply FDR** to begin the analysis.")
     
 if (
     st.session_state.get("run_fdr_clicked", False)

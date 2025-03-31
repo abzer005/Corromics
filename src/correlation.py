@@ -9,11 +9,10 @@ import psutil
 import os
 
 def is_running_locally():
-    """Return True if app is running locally (localhost), False if on cloud."""
-    return os.environ.get("REMOTE_ADDR", "") in ("127.0.0.1", "localhost", "0.0.0.0", "")
-
-
-#import cupy as cp
+    try:
+        return st.secrets["environment"]["mode"] == "local"
+    except KeyError:
+        return False  # If not set, assume cloud
 
 def combine_dataframes(df1, df2):
 
