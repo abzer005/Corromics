@@ -6,7 +6,7 @@ Corromics is a web-based application designed to uncover correlation patterns be
 
 ## Why Install Corromics Locally?
 
-Running Corromics in the cloud has a built-in safeguard: a **limit of 1 million correlations** to prevent crashes. For larger datasets, we **strongly recommend installing and running Corromics locally**, allowing faster performance and access to more computing power directly on your machine.
+Running Corromics in the [cloud](https://corromics.gnps2.org/) has a built-in safeguard: a **limit of 1 million correlations** to prevent crashes. For larger datasets, we **strongly recommend installing and running Corromics locally**, allowing faster performance and access to more computing power directly on your machine.
 
 ---
 
@@ -49,6 +49,8 @@ This file will typically appear in your **Downloads** folder.
 
 ### ✅ Step 2: Open Terminal and Run the Script
 
+Execute each of the following commands one after the other in the terminal.
+
 ```bash
 # Navigate to your Downloads folder
 cd ~/Downloads
@@ -79,7 +81,7 @@ The app should open automatically in your default web browser. If it doesn’t, 
 ### Running Corromics After Installation
 Once installed, you don’t need to run the script again. To start Corromics in the future:
 
-Open Terminal and enter the following commands:
+Open Terminal and enter the following commands step by step:
 
 ```bash
 cd ~/Corromics 
