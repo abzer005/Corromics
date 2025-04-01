@@ -445,7 +445,7 @@ if (
                                                f, 
                                                file_name=output_file, 
                                                mime="application/graphml+xml")
-else:
+elif st.session_state.get("run_fdr_clicked", False) and st.session_state.get("no_correlations", 0) >= 1_000_000 and not is_running_locally():
     st.error("❌ As correlations exceed 1,000,000, no correlations were computed for this level.")
     st.info("💡 Please clone or download the app and run it locally. This helps avoid memory crashes in the cloud environment.")
         
