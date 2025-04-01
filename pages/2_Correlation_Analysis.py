@@ -376,7 +376,7 @@ else:
 if (
     st.session_state.get("run_fdr_clicked", False)
     and (
-        st.session_state.get("no_correlations", 0) <= 1_000_000
+        st.session_state.get("no_correlations", 0) < 1_000_000
         or is_running_locally()
     )
 ):
@@ -445,6 +445,11 @@ if (
                                                f, 
                                                file_name=output_file, 
                                                mime="application/graphml+xml")
+else:
+    st.error("❌ As correlations exceed 1,000,000, no correlations were computed for this level.")
+    st.info("💡 Please clone or download the app and run it locally. This helps avoid memory crashes in the cloud environment.")
+        
+
 
 # Custom-Styled "FDR" Button
 with stylable_container(
