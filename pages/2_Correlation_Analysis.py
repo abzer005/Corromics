@@ -348,7 +348,7 @@ if 'Target_scores' in st.session_state and 'Decoy_scores' in st.session_state:
         correlations = st.session_state['no_correlations']
         # Estimate total number of correlations
         if correlations >= 1_000_000 and not is_running_locally():
-            st.error("❌ No correlations was computed for this level")
+            st.error("❌ As correlations exceed 1,000,000, no correlations were computed for this level.")
             st.info("💡 Please clone or download the app and run it locally. This helps avoid memory crashes in the cloud environment.")
         
         else:       
@@ -371,8 +371,7 @@ if 'Target_scores' in st.session_state and 'Decoy_scores' in st.session_state:
             st.session_state["fig_histogram"] = fig_histogram
             st.session_state["fig_fdr"] = fig_fdr
 else:
-
-    st.warning("Please run FDR to continue this step.")
+    st.warning("Please run correlation analysis to continue this step.")
 
 if (
     st.session_state.get("run_fdr_clicked", False)
@@ -446,12 +445,6 @@ if (
                                                f, 
                                                file_name=output_file, 
                                                mime="application/graphml+xml")
-
-elif st.session_state.get("run_fdr_clicked", False) and st.session_state.get("no_correlations", 0) >= 1_000_000 and not is_running_locally():
-        st.warning("⚠️ Correlation results exceed 1,000,000 and are disabled in the cloud to prevent crashes.")
-else:
-    st.warning("Please run the FDR before further processing")
-
 
 # Custom-Styled "FDR" Button
 with stylable_container(
