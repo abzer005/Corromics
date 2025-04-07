@@ -16,6 +16,9 @@ from streamlit_extras.stylable_container import stylable_container
 
 st.markdown("## Metabolomics-Metagenomics Data Combined")
 
+if 'RUNNING_LOCALLY' not in st.session_state:
+    st.session_state['RUNNING_LOCALLY'] = is_running_locally()
+
 # Rearrange and display the table
 if 'taxonomic_order' in st.session_state and 'rearranged_omics_table' in st.session_state:
     taxa_order = st.session_state['taxonomic_order']
@@ -197,7 +200,7 @@ if all(key in st.session_state for key in ['target_dataframe', 'decoy_dataframe'
         # Estimate total number of correlations
         correlations = st.session_state['no_correlations']
 
-        if correlations >= 1_000_000 and not is_running_locally():
+        if correlations >= 1_000_000 and not st.session_state['RUNNING_LOCALLY']:
             st.error("❌ Too many correlations to compute in the cloud environment (≥ 1,000,000).")
             st.info("💡 This computation is memory intensive. Please clone the app and run it locally. This helps avoid memory crashes in the cloud environment.")
         
@@ -347,7 +350,7 @@ if 'Target_scores' in st.session_state and 'Decoy_scores' in st.session_state:
         
         correlations = st.session_state['no_correlations']
         # Estimate total number of correlations
-        if correlations >= 1_000_000 and not is_running_locally():
+        if correlations >= 1_000_000 and not st.session_state['RUNNING_LOCALLY']:
             st.error("❌ As correlations exceed 1,000,000, no correlations were computed for this level.")
             st.info("💡 Please clone or download the app and run it locally. This helps avoid memory crashes in the cloud environment.")
         
@@ -377,7 +380,7 @@ if (
     st.session_state.get("run_fdr_clicked", False)
     and (
         st.session_state.get("no_correlations", 0) < 1_000_000
-        or is_running_locally()
+        or st.session_state['RUNNING_LOCALLY']
     )
 ):
     st.plotly_chart(st.session_state["fig_histogram"])
@@ -445,7 +448,7 @@ if (
                                                f, 
                                                file_name=output_file, 
                                                mime="application/graphml+xml")
-elif st.session_state.get("run_fdr_clicked", False) and st.session_state.get("no_correlations", 0) >= 1_000_000 and not is_running_locally():
+elif st.session_state.get("run_fdr_clicked", False) and st.session_state.get("no_correlations", 0) >= 1_000_000 and not st.session_state['RUNNING_LOCALLY']:
     st.error("❌ As correlations exceed 1,000,000, no correlations were computed for this level.")
     st.info("💡 Please clone or download the app and run it locally. This helps avoid memory crashes in the cloud environment.")
         
