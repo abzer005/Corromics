@@ -14,10 +14,9 @@ import time
 from scipy.stats import mstats
 from streamlit_extras.stylable_container import stylable_container
 
-st.markdown("## Metabolomics-Metagenomics Data Combined")
+initialize_app()
 
-if 'RUNNING_LOCALLY' not in st.session_state:
-    st.session_state['RUNNING_LOCALLY'] = is_running_locally()
+st.markdown("## Metabolomics-Metagenomics Data Combined")
 
 # Rearrange and display the table
 if 'taxonomic_order' in st.session_state and 'rearranged_omics_table' in st.session_state:
@@ -190,7 +189,9 @@ with stylable_container(
     }
     """,
 ):
-    run_corr_clicked = st.button("Run Correlation Analysis", key="run_correlation", disabled=st.session_state.get("processing", False))
+    run_corr_clicked = st.button("Run Correlation Analysis", 
+                                 key="run_correlation", 
+                                 disabled=st.session_state.is_restricted_mode and st.session_state.get('no_correlations', 0) >= 1_000_000)
 
 # Perform Correlation Analysis Logic
 if all(key in st.session_state for key in ['target_dataframe', 'decoy_dataframe', 'metabolome_ft', 'binned_omics_table', 'target_omics', 'decoy_omics']):
@@ -200,9 +201,9 @@ if all(key in st.session_state for key in ['target_dataframe', 'decoy_dataframe'
         # Estimate total number of correlations
         correlations = st.session_state['no_correlations']
 
-        if correlations >= 1_000_000 and not st.session_state['RUNNING_LOCALLY']:
-            st.error("❌ Too many correlations to compute in the cloud environment (≥ 1,000,000).")
-            st.info("💡 This computation is memory intensive. Please clone the app and run it locally. This helps avoid memory crashes in the cloud environment.")
+        if correlations >= 1_000_000 and st.session_state.is_restricted_mode :
+            st.error("❌ Too many correlations to compute in the cloud environment (≥ 1,000,000). Please clone the app and run it locally. This helps avoid memory crashes in the cloud environment.")
+            st.stop()
         
         else:
             st.session_state["processing"] = True  # Set processing flag
@@ -350,10 +351,9 @@ if 'Target_scores' in st.session_state and 'Decoy_scores' in st.session_state:
         
         correlations = st.session_state['no_correlations']
         # Estimate total number of correlations
-        if correlations >= 1_000_000 and not st.session_state['RUNNING_LOCALLY']:
-            st.error("❌ As correlations exceed 1,000,000, no correlations were computed for this level.")
-            st.info("💡 Please clone or download the app and run it locally. This helps avoid memory crashes in the cloud environment.")
-        
+        if correlations >= 1_000_000 and not st.session_state.is_restricted_mode:
+            st.error("❌ As correlations exceed 1,000,000, no correlations were computed for this level. 💡 Please clone or download the app and run it locally. This helps avoid memory crashes in the cloud environment.")
+            st.stop()
         else:       
             st.session_state["run_fdr_clicked"] = True
 
@@ -380,7 +380,7 @@ if (
     st.session_state.get("run_fdr_clicked", False)
     and (
         st.session_state.get("no_correlations", 0) < 1_000_000
-        or st.session_state['RUNNING_LOCALLY']
+        or not st.session_state.is_restricted_mode
     )
 ):
     st.plotly_chart(st.session_state["fig_histogram"])
@@ -448,12 +448,10 @@ if (
                                                f, 
                                                file_name=output_file, 
                                                mime="application/graphml+xml")
-elif st.session_state.get("run_fdr_clicked", False) and st.session_state.get("no_correlations", 0) >= 1_000_000 and not st.session_state['RUNNING_LOCALLY']:
-    st.error("❌ As correlations exceed 1,000,000, no correlations were computed for this level.")
-    st.info("💡 Please clone or download the app and run it locally. This helps avoid memory crashes in the cloud environment.")
+elif st.session_state.get("run_fdr_clicked", False) and st.session_state.get("no_correlations", 0) >= 1_000_000 and st.session_state.is_restricted_mode:
+    st.error("❌ As correlations exceed 1,000,000, no correlations were computed for this level. 💡 Please clone or download the app and run it locally. This helps avoid memory crashes in the cloud environment.")
+    st.stop()
         
-
-
 # Custom-Styled "FDR" Button
 with stylable_container(
     key="fdr_reset_container",

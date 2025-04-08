@@ -5,7 +5,7 @@ from streamlit.components.v1 import html
 
 page_setup()
 
-st.title('CORROMICS')
+initialize_app()
 
 c1, c2, c3 = st.columns([2, 2, 2])  # Adjust column ratios for centering
 with c2:

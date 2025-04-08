@@ -4,6 +4,8 @@ import pandas as pd
 from src.common import *        # Importing common functionalities
 from src.fileselection import * # Importing file selection functionalities
 
+initialize_app()
+
 # Introduction Section
 st.markdown("### Please select your method for data input below.")
 

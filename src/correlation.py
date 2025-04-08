@@ -8,29 +8,6 @@ from multiprocessing import Pool
 import psutil
 import os
 
-def is_running_in_docker():
-    try:
-        with open('/proc/1/cgroup', 'rt') as ifh:
-            content = ifh.read()
-            return 'docker' in content or 'containerd' in content
-    except Exception:
-        return False
-
-def is_running_locally():
-    # First, check Streamlit secrets if they exist
-    try:
-        mode = st.secrets["environment"]["mode"]
-        return mode == "local"
-    except Exception:
-        pass
-
-    # Second, check if running in Docker
-    if is_running_in_docker():
-        return False  # Docker = treat as "cloud"
-
-    # Default to local
-    return True
-
 
 def combine_dataframes(df1, df2):
 

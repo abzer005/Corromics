@@ -153,3 +153,15 @@ def download_plotly_figure(fig, filename="", col=""):
             file_name=filename,
             mime="application/png",
         )
+
+
+def initialize_app():
+    if "is_restricted_mode" not in st.session_state:
+        url = st.experimental_get_url()
+        if "corromics.gnps2.org" in url or "corromics.streamlit.app" in url:
+            st.session_state.is_restricted_mode = True
+        else:
+            st.session_state.is_restricted_mode = False
+
+    if st.session_state.is_restricted_mode:
+        st.warning("⚠️ You are running in restricted mode on this server. Heavy correlations are disabled to protect the server.")
