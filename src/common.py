@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import io
 import uuid
+import os
 
 def clear_cache_button():
    if st.button("Clear Cache"):
@@ -154,14 +155,21 @@ def download_plotly_figure(fig, filename="", col=""):
             mime="application/png",
         )
 
-
 def initialize_app():
-    if "is_restricted_mode" not in st.session_state:
-        url = st.experimental_get_url()
-        if "corromics.gnps2.org" in url or "corromics.streamlit.app" in url:
-            st.session_state.is_restricted_mode = True
-        else:
-            st.session_state.is_restricted_mode = False
 
+    # Try to read from Streamlit secrets
+    environment_mode = st.secrets.get("ENVIRONMENT_MODE", None)
+
+    # If not found, fallback to environment variable
+    if environment_mode is None:
+        environment_mode = os.getenv("ENVIRONMENT_MODE", "local")
+    
+    # Store in session state for global access
+    st.session_state.is_restricted_mode = environment_mode in ["gnps", "streamlit"]
+
+    # Optional: show environment mode for debugging
+    #st.write(f"Environment mode: {environment_mode}")
+
+    # Optional: warning if restricted mode is active
     if st.session_state.is_restricted_mode:
-        st.warning("⚠️ You are running in restricted mode on this server. Heavy correlations are disabled to protect the server.")
+        st.warning("⚠️ Restricted mode is active: correlation limits are enforced.")
