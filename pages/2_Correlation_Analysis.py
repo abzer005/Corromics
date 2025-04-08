@@ -328,8 +328,9 @@ with stylable_container(
 ):
     run_fdr_button_clicked = st.button("Apply FDR", 
                                        key="run_fdr",
-                                       disabled=st.session_state.is_restricted_mode and st.session_state.get('no_correlations', 0) >= 1_000_000)
-)
+                                       disabled=st.session_state.is_restricted_mode and st.session_state.get('no_correlations', 0) >= 1_000_000
+                                       )
+
 
 
 # Initialize session state for button click
