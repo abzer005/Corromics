@@ -155,6 +155,16 @@ def download_plotly_figure(fig, filename="", col=""):
             mime="application/png",
         )
 
+# def initialize_app():
+#     environment_mode = os.getenv("ENVIRONMENT_MODE", "local")
+#     if environment_mode == "gnps" or environment_mode == "streamlit":
+#         st.session_state.is_restricted_mode = True
+#     else:
+#         st.session_state.is_restricted_mode = False
+
+#     if st.session_state.is_restricted_mode:
+#         st.warning("⚠️ You are running in restricted mode on this server. Heavy correlations are disabled to protect the server.")
+
 def initialize_app():
 
     # Try to read from Streamlit secrets
@@ -172,4 +182,6 @@ def initialize_app():
 
     # Optional: warning if restricted mode is active
     if st.session_state.is_restricted_mode:
-        st.warning("⚠️ Restricted mode is active: correlation limits are enforced.")
+        st.warning("⚠️ Restricted mode is active: Correlation analyses exceeding 1 million comparisons are disabled to ensure server stability.")
+
+       
