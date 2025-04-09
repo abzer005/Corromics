@@ -118,24 +118,21 @@ check the **top-right corner** of the page. If you see the message **'RUNNING'**
 # Citation and Resources
 st.subheader('Citation and Further Resources')
 
-st.markdown("""
-Running **CorrOmics in the cloud** at [https://corromics.gnps2.org/](https://corromics.gnps2.org/) comes with a restriction for over 1 million correlations, to protect server performance.
-            
-For larger datasets, we recommend running CorrOmics locally.
-            """)
+st.warning("""
+           Running **CorrOmics in the cloud** at [https://corromics.gnps2.org/](https://corromics.gnps2.org/) comes with a **restriction for over 1 million correlations**, to protect server performance. For larger datasets, we recommend running CorrOmics locally. 
+           """)
 
-st.markdown("""            
-##### 🔽 Download CorrOmics Locally
+with st.expander("Download the CorrOmics app"):
+    st.write("""            
+    **For Windows users:**
+    - **You can directly download the Windows executable (.exe) from our lab's website [www.functional-metabolomics.com/resources](https://www.functional-metabolomics.com/resources)**
+    - Click the **Download** button next to CorrOmics.
+    - Run the installer and follow the on-screen instructions.
 
-**For Windows users:**
-- You can directly download the Windows executable (.exe) from our lab's website [www.functional-metabolomics.com/resources](https://www.functional-metabolomics.com/resources)
-- Click the **Download** button next to CorrOmics.
-- Run the installer and follow the on-screen instructions.
+    **For macOS users:**
+    Please follow the installation instructions in the [CorrOmics GitHub](https://github.com/abzer005/Corromics) repository
 
-**For macOS users:**
-Please follow the installation instructions in the [CorrOmics GitHub](https://github.com/abzer005/Corromics) repository
-
-""")
+    """)
 
 st.write('**If you use CorrOmics in your research, please cite:**')
 st.markdown("""

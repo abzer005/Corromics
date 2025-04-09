@@ -155,15 +155,14 @@ def download_plotly_figure(fig, filename="", col=""):
             mime="application/png",
         )
 
-# def initialize_app():
-#     environment_mode = os.getenv("ENVIRONMENT_MODE", "local")
-#     if environment_mode == "gnps" or environment_mode == "streamlit":
-#         st.session_state.is_restricted_mode = True
-#     else:
-#         st.session_state.is_restricted_mode = False
+  
+def get_max_correlation_limit():
+    limits = {
+        "restricted": 1_000_000, # Safe limit for restricted (cloud/GNPS/streamlit)
+        "local": 10_000_000,  #Safe upper limit for local mode
+    }
+    return limits["restricted"] if st.session_state.is_restricted_mode else limits["local"]
 
-#     if st.session_state.is_restricted_mode:
-#         st.warning("⚠️ You are running in restricted mode on this server. Heavy correlations are disabled to protect the server.")
 
 def initialize_app():
 
@@ -177,11 +176,12 @@ def initialize_app():
     # Store in session state for global access
     st.session_state.is_restricted_mode = environment_mode in ["gnps", "streamlit"]
 
-    # Optional: show environment mode for debugging
-    #st.write(f"Environment mode: {environment_mode}")
-
     # Optional: warning if restricted mode is active
-    if st.session_state.is_restricted_mode:
-        st.warning("⚠️ Restricted mode is active: Correlation analyses exceeding 1 million comparisons are disabled to ensure server stability.")
+    with st.sidebar:
+        if st.session_state.is_restricted_mode:
+            st.warning(f"⚠️ Restricted mode is active: \nMax correlation limit: **{get_max_correlation_limit():,}**")
+        else:
+            st.success(f"App running in **local mode**.\nMax correlation limit: **{get_max_correlation_limit():,}**")
 
-       
+
+ 
