@@ -23,11 +23,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.write(' ')
-st.subheader('Corromics: A Multi-Omics Correlation Analysis Tool')
+st.subheader('CorrOmics: A Multi-Omics Correlation Analysis Tool')
 
 st.write("""
-         Corromics is a web-based application designed to uncover correlation patterns between microbiome and metabolome data. 
-         By integrating microbial (e.g., ASV sequences) and metabolite information, Corromics constructs a network where each microbial entity and metabolite is represented as a node. 
+         CorrOmics is a web-based application designed to uncover correlation patterns between microbiome and metabolome data. 
+         By integrating microbial (e.g., ASV sequences) and metabolite information, CorrOmics constructs a network where each microbial entity and metabolite is represented as a node. 
          Edges are drawn between nodes to visualize their interactions, helping researchers discern meaningful relationships between microbial communities and metabolic profiles. 
          This tool facilitates a deeper understanding of microbial-metabolite associations, enabling insights into functional dynamics in diverse biological systems.""")
 
@@ -78,9 +78,29 @@ Example metadata table:
 # Output Files
 st.subheader('Output File Information')
 st.write("""
-- Upon processing your data, Corromics generates an edge file as an output in CSV format. 
+- Upon processing your data, CorrOmics generates an output **edge file** in CSV format. 
 - You can download the result as a **GraphML** file as well for Cytoscape visualization.  
-         """)
+                  """)
+
+with st.expander("💡 Tips for Using the GraphML file in Cytoscape"):
+    st.markdown("""
+    - Simply **drag and drop** the `.graphml` file into Cytoscape.
+    - Once loaded, you will see both the **edge table** and the **node table**
+    ##### Node Table
+    - **Node names** are derived from the `shared_name` column by default.
+    - The `Node_Info` column contains detailed annotations:
+    - For the example dataset:
+        - **Omics_1** refers to features from the metabolomics quantification table (the first table you uploaded).
+        - **Omics_2** refers to the binned ASVs from the ASV table.
+    - You can use `Node_Info` to **color nodes** or **assign different shapes** based on node type in Cytoscape.
+    - The `Original_index` column contains the original identifiers:
+    - For metabolomics features: e.g., `ID_mz_RT`.
+    - For ASVs: longer binned names like `Bacteria_Proteobacteria_Gammaproteobacteria_Thiotrichales_Thiotrichaceae`
+    
+    ##### Edge Table
+    - Use the `Absolute_Correlation_Score` column to **assign weights** to edges in your network.
+    - Use the `Sign_Score` column (`-1` or `+1`) to **color positive and negative correlations** for better visual distinction.
+                 """)
 
 # Subheader and Interactive Features
 st.subheader('About the App Elements')
@@ -97,7 +117,27 @@ check the **top-right corner** of the page. If you see the message **'RUNNING'**
 
 # Citation and Resources
 st.subheader('Citation and Further Resources')
-st.write('If you use Corromics in your research, please cite:')
+
+st.markdown("""
+Running **CorrOmics in the cloud** at [https://corromics.gnps2.org/](https://corromics.gnps2.org/) comes with a restriction for over 1 million correlations, to protect server performance.
+            
+For larger datasets, we recommend running CorrOmics locally.
+            """)
+
+st.markdown("""            
+##### 🔽 Download CorrOmics Locally
+
+**For Windows users:**
+- You can directly download the Windows executable (.exe) from our lab's website [www.functional-metabolomics.com/resources](https://www.functional-metabolomics.com/resources)
+- Click the **Download** button next to CorrOmics.
+- Run the installer and follow the on-screen instructions.
+
+**For macOS users:**
+Please follow the installation instructions in the [CorrOmics GitHub](https://github.com/abzer005/Corromics) repository
+
+""")
+
+st.write('**If you use CorrOmics in your research, please cite:**')
 st.markdown("""
             * [FBMN-STATS](https://fbmn-statsguide.gnps2.org/) - A statistical pipeline for downstream processing of FBMN results.
             * Pakkir Shah, A.K., Walter, A., Ottosson, F. et al. Statistical analysis of feature-based molecular networking results from non-targeted metabolomics data. Nat Protoc (2024). https://doi.org/10.1038/s41596-024-01046-3
@@ -110,10 +150,8 @@ st.markdown("""
 # Feedback Section
 st.subheader("We Value Your Feedback")
 st.markdown("""
-            We welcome your feedback and suggestions to improve Corromics. Please feel free to create an issue on our GitHub repository to share your thoughts or report any issues you encounter. 
+            We welcome your feedback and suggestions to improve CorrOmics. Please feel free to [Create an Issue on GitHub](https://github.com/abzer005/Corromics/issues/new) repository to share your thoughts or report any issues you encounter. 
             Your input is invaluable in making the tool better for everyone.
-
-            [Create an Issue on GitHub](https://github.com/abzer005/Corromics/issues/new)
 """)
 
 # Contribution and Follow Us
@@ -125,4 +163,4 @@ st.markdown("""
 
 # Optional: Footer
 st.markdown("---")
-st.text("Corromics © 2025")
+st.text("CorrOmics © 2025")
