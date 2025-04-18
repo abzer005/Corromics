@@ -1,76 +1,77 @@
-# Import necessary libraries
 import streamlit as st
-import pandas as pd
-from src.common import *        # Importing common functionalities
-from src.fileselection import * # Importing file selection functionalities
+import numpy as np
+from src.common import *     
+from src.fileselection import *
 from src.correlation import *
 from src.fdr import *
 from src.molnet import *
-import random
-from multiprocessing import Pool
-from datetime import datetime
-import threading
-import time
-from scipy.stats import mstats
 from streamlit_extras.stylable_container import stylable_container
+import random
+import time
+
 
 initialize_app()
 st.session_state['max_corr'] = get_max_correlation_limit()
 
+##########################################################################
+
 st.markdown("## Metabolomics-Metagenomics Data Combined")
 
-# Rearrange and display the table
-if 'taxonomic_order' in st.session_state and 'rearranged_omics_table' in st.session_state:
-    taxa_order = st.session_state['taxonomic_order']
+if ('rearranged_omics_table' in st.session_state and not st.session_state['rearranged_omics_table'].empty):
     omics_rearranged = st.session_state['rearranged_omics_table']
 
-    # Allow the user to select the taxonomic level from the available options
-    selected_level = st.selectbox("Select a taxonomic level to bin the data:", taxa_order)
+    if (st.session_state.get("has_taxonomic_info") == "Yes"and st.session_state.get("taxonomic_order")):
+        taxa_order = st.session_state['taxonomic_order']
 
-    # Perform binning based on the selected level
-    binned_by_level = bin_by_taxonomic_level(omics_rearranged, selected_level)
+        st.warning(
+            "⚠️ By default, the data is binned at the **highest available hierarchical level**."
+            " This occurs automatically when the page first loads. Please review the selected level below and change it if needed."
+            )
 
-    with st.expander(f"Binned Data at Level: {selected_level} , Original Dimension: {binned_by_level.shape}"):
-        st.dataframe(binned_by_level)
+        # Allow the user to select the taxonomic level from the available options
+        selected_level = st.selectbox("Select a taxonomic level to bin the data:", taxa_order)
 
-    # Get the maximum value of 'Overall_sum' for dynamic thresholding
-    max_overall_sum = binned_by_level['Overall_sum'].max()
-
-    # Create two columns for user input
-    filter_col1, filter_col2 = st.columns(2)
-
-    # User inputs for filters
-    with filter_col1:
-        # Set a threshold to filter out low-read/intensity values
-        st.session_state['filter_threshold_below'] = st.number_input(
-            "**Filter out data with reads/intensities below the user input. Press Enter to apply.**", 
-            min_value=0.0, 
-            value=0.0, 
-            step=1.0, 
-            help="**All variables with a total read/intensity below this threshold will be removed from analysis.**"
-        )
-
-    with filter_col2:
-        st.session_state['filter_threshold_above'] = st.number_input(
-            "**Filter out data with reads/intensities above this value. Press Enter to apply.**", 
-            max_value=float(max_overall_sum),         # Dynamically set the maximum possible value
-            value= float(max_overall_sum),             # Default value is the current max
-            step=1.0, 
-            help="**All variables with a total read/intensity ABOVE this threshold will be removed from analysis.**"
-        ) 
-
-    # Apply the filter dynamically based on user input
-    binned_level_filtered = binned_by_level[
-        (binned_by_level['Overall_sum'] > st.session_state['filter_threshold_below']) & 
-        (binned_by_level['Overall_sum'] <= st.session_state['filter_threshold_above'])
-        ]
+        # Perform binning based on the selected level
+        binned_by_level = bin_by_taxonomic_level(omics_rearranged, selected_level)
     
-    # Specify the columns to exclude
-    exclude_cols = ['index', 'Overall_sum']  # Replace with actual column names
+    elif (not st.session_state.get("taxonomic_order") or st.session_state.get("has_taxonomic_info") == "No"):
+ 
+        st.warning("No taxonomic order available for binning. The index column was used as the binning level.")
+        # Drop rows and cols where all values are NaN
+        omics_numeric = omics_rearranged.select_dtypes(include='number')
+        selected_level = omics_numeric.index.name or "Index"
+
+        # Allow the user to select the taxonomic level from the available options
+        binned_by_level = bin_by_flat_id(omics_numeric)      
+    
+    else:
+        st.warning("❗ Could not determine binning strategy. Please check your inputs.")
+        binned_by_level = None
+        selected_level = None
+   
+    if binned_by_level is not None:
+        with st.expander(f"Binned Data at Level: {selected_level}, Original Dimension: {binned_by_level.shape}"):
+            st.dataframe(binned_by_level)
+            st.info(
+                "👉 Scroll to the far right of the table to see the **Overall_sum** column. "
+                "This represents the total abundance or count for each row and can be used with the filter options below to refine your data."
+                )     
+    
+    st.markdown('#### Filter Binned Data by intensity')
+    st.info(
+        "Filtering the data by intensity allows users to reduce the number of features included in the correlation analysis, "
+        "which can **substantially affect both the number of computed correlations and the overall runtime**. "
+        "By default, features with an **Overall Sum of 0** are excluded, as they result in NA values.\n\n"
+        "The filtering is optional and intended solely for computational or exploratory purposes. "
+        "**No assumptions are made about the biological relevance of features excluded through these filters.**"
+    )
+
+    
+    binned_level_filtered, exclude_cols = filter_by_overall_sum(binned_by_level, label_prefix="table2_")
 
     # Checkboxes for selecting transformations
-    apply_imputation = st.checkbox("Apply Imputation (Replace 0s with 1)")
-    apply_log_transform = st.checkbox("Apply Log Transformation (log10)")
+    apply_imputation = st.checkbox("Apply Imputation (Replace 0s with 1) on the binned data", key="imputation_checkbox")
+    apply_log_transform = st.checkbox("Apply Log Transformation (log10) on the binned data", key="log_transform_checkbox")
 
     # Step 1: Apply Imputation (if selected)
     if apply_imputation:
@@ -93,10 +94,15 @@ if 'taxonomic_order' in st.session_state and 'rearranged_omics_table' in st.sess
     st.session_state['binned_omics_table'] = binned_level_filtered
 
     # Display the binned table
-    with st.expander(f"Binned Data at Level: {selected_level} , Filtered Dimension: {binned_level_filtered.shape}"):
+    with st.expander(f"Binned Data at Level: {selected_level}, Filtered Dimension: {binned_level_filtered.shape}"):
         st.dataframe(binned_level_filtered)
 
-   
+else:
+    st.warning("Please upload the data in the first page to continue the analysis here")
+
+st.markdown('---')
+
+st.write("## Target vs Decoy Dataframe")   
 #####################################################################################
 if 'metabolome_ft' in st.session_state and 'binned_omics_table' in st.session_state:
     met_ft = st.session_state['metabolome_ft']
@@ -166,46 +172,30 @@ st.session_state["method"] = st.radio(
 with stylable_container(
     key="run_correlation_container",
     css_styles="""
-    button {
-        background-color: #00689E;  /* Blue */
-        color: white;
-        padding: 14px 20px;
-        margin: 10px 0;
-        border: none;
-        border-radius: 10px;
-        cursor: pointer;
-        width: 100%;
-        font-size: 18px;
-        font-weight: bold;
-        transition: background-color 0.3s ease, transform 0.2s ease;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-    }
-     button:hover {
-        background-color: #003043;  /* Darker Blue on Hover */
-        transform: scale(1.03);     /* Slight zoom effect */
-    }
-    button:disabled {
-        background-color: #A9A9A9;  /* Grey when disabled */
-        cursor: not-allowed;
-    }
-    """,
-):
+    button { background-color: #00689E; color: white; font-weight: bold; width: 100%; }
+    button:hover { background-color: #003043; transform: scale(1.05); }
+    button:disabled { background-color: #A9A9A9;  cursor: not-allowed;}
+    """):
     run_corr_clicked = st.button("Run Correlation Analysis", 
                                  key="run_correlation", 
-                                 disabled=st.session_state.is_restricted_mode and st.session_state.get('no_correlations', 0) >= st.session_state.max_corr)
+                                 disabled=st.session_state.get('no_correlations', 0) >= st.session_state.max_corr)
 
 # Perform Correlation Analysis Logic
 if all(key in st.session_state for key in ['target_dataframe', 'decoy_dataframe', 'metabolome_ft', 'binned_omics_table', 'target_omics', 'decoy_omics']):
     
+    # Estimate total number of correlations
+    correlations = st.session_state['no_correlations']
+
     if run_corr_clicked:
 
-        # Estimate total number of correlations
-        correlations = st.session_state['no_correlations']
-
-        if correlations >= st.session_state.max_corr and st.session_state.is_restricted_mode :
+        if not st.session_state.is_restricted_mode and correlations >= 10_000_000:
+            st.error(
+                "❌ Too many correlations to compute in this environment — more than **10 million**.\n\n"
+                "This could crash your local memory and force you to quit other apps.💡 Please reduce the number of features or samples to perform a meaningful analysis and avoid memory overload."
+            )
+        elif st.session_state.is_restricted_mode and correlations >= 1_000_000:
             st.error(f"❌ Too many correlations to compute in this environment (≥ {st.session_state.max_corr}). Please clone the app and run it locally. This helps avoid memory crashes in the cloud environment.")
             st.stop()
-        
         else:
             st.session_state["processing"] = True  # Set processing flag
 
@@ -303,33 +293,14 @@ st.markdown('## False Discovery Rate')
 with stylable_container(
     key="run_fdr_container",
     css_styles="""
-    button {
-        background-color: #00689E;  /* Blue */
-        color: white;
-        padding: 14px 20px;
-        margin: 10px 0;
-        border: none;
-        border-radius: 10px;
-        cursor: pointer;
-        width: 100%;
-        font-size: 18px;
-        font-weight: bold;
-        transition: background-color 0.3s ease, transform 0.2s ease;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-    }
-     button:hover {
-        background-color: #003043;  /* Darker Blue on Hover */
-        transform: scale(1.03);     /* Slight zoom effect */
-    }
-    button:disabled {
-        background-color: #A9A9A9;  /* Grey when disabled */
-        cursor: not-allowed;
-    }
-    """,
-):
+        button { background-color: #00689E; color: white; font-weight: bold; width: 100%; }
+        button:hover { background-color: #003043; transform: scale(1.05); }
+        button:disabled { background-color: #A9A9A9;  cursor: not-allowed;}
+    """):
+
     run_fdr_button_clicked = st.button("Apply FDR", 
                                        key="run_fdr",
-                                       disabled=st.session_state.is_restricted_mode and st.session_state.get('no_correlations', 0) >= st.session_state.max_corr
+                                       disabled= st.session_state.get('no_correlations', 0) >= st.session_state.max_corr
                                        )
 
 
@@ -365,10 +336,6 @@ if 'Target_scores' in st.session_state and 'Decoy_scores' in st.session_state:
             target_scores = st.session_state['Target_scores']
             decoy_scores = st.session_state['Decoy_scores']
 
-            # Apply Winsorization only to the 'Estimate' column
-            #target_scores['Estimate'] = dynamic_winsorize(target_scores['Estimate'])
-            #decoy_scores['Estimate'] = dynamic_winsorize(decoy_scores['Estimate'])
-
             # Step 1: Calculate FDR Data
             overall_fdr_table = calculate_fdr(target_scores, 
                                             decoy_scores,
@@ -381,6 +348,8 @@ if 'Target_scores' in st.session_state and 'Decoy_scores' in st.session_state:
 else:
     st.warning("Please run correlation analysis to continue this step.")
 
+
+# Display FDR results only if button was clicked and correlations are within limits
 if (
     st.session_state.get("run_fdr_clicked", False)
     and (
@@ -390,6 +359,9 @@ if (
 ):
     st.plotly_chart(st.session_state["fig_histogram"])
     st.plotly_chart(st.session_state["fig_fdr"])
+
+    melted_target = st.session_state['Target_scores']
+
     st.write('Select the positive and negative cutoffs for the correlation scores based on your FDR-curve')
 
     ######USER DEFINED CUTOFFS----------------------
@@ -400,12 +372,18 @@ if (
     with input_col1:
          # User input for filter threshold (default is 0)
         st.session_state["neg_fdr_cutoff"] = st.number_input("Enter Negative FDR Cutoff (e.g., -0.5):",
-                                                             value= st.session_state["neg_fdr_cutoff"],
-                                                             step=0.05)
+                                                             value=st.session_state.get("neg_fdr_cutoff", -0.5),
+                                                             min_value=-1.0,
+                                                             max_value=0.0,
+                                                             step=0.05
+                                                         )
+
 
     with input_col2:
         st.session_state["pos_fdr_cutoff"] = st.number_input("Enter Positive FDR Cutoff (e.g., 0.5):",
-                                                             value = st.session_state["pos_fdr_cutoff"], 
+                                                             value = st.session_state.get("pos_fdr_cutoff", 0.5),
+                                                             min_value=0.0,
+                                                             max_value=1.0, 
                                                              step = 0.05)
 
     # Subset the target dataframe based on user-defined cutoffs
@@ -442,17 +420,23 @@ if (
             with c3:
                 # Assuming node_table and edge_table are loaded into Streamlit session state
                 output_file = "correlation_network.graphml"
-
-                if st.button("Generate GraphML"):
-                    result = generate_graphml_corromics(st.session_state['node_table'], 
+                # Generate GraphML file
+                if 'node_table' in st.session_state:
+                    graphml_ready = generate_graphml_corromics(st.session_state['node_table'], 
                                                         st.session_state['filtered_target'], 
                                                         output_file)
-                    if result:
+                    if graphml_ready:
                         with open(output_file, "rb") as f:
                             st.download_button("Download GraphML", 
-                                               f, 
-                                               file_name=output_file, 
-                                               mime="application/graphml+xml")
+                                            f, 
+                                            file_name=output_file, 
+                                            mime="application/graphml+xml")
+                    else:
+                        st.error("❌ Failed to generate GraphML.")
+                else:
+                    st.error("❌ Node table not found in session state. Please run the correlation analysis first.")
+
+
 elif st.session_state.get("run_fdr_clicked", False) and st.session_state.get("no_correlations", 0) >= st.session_state.max_corr and st.session_state.is_restricted_mode:
     st.error(f"❌ As correlations exceed {st.session_state.max_corr}, no correlations were computed for this level. 💡 Please clone or download the app and run it locally. This helps avoid memory crashes in the cloud environment.")
     st.stop()
@@ -461,36 +445,21 @@ elif st.session_state.get("run_fdr_clicked", False) and st.session_state.get("no
 with stylable_container(
     key="fdr_reset_container",
     css_styles="""
-    button {
-        background-color: #FF000066;  /* Orange */
-        color: black;
-        padding: 14px 20px;
-        margin: 10px 0;
-        border: none;
-        border-radius: 10px;
-        cursor: pointer;
-        width: 100%;
-        font-size: 18px;
-        font-weight: bold;
-        transition: background-color 0.3s ease, transform 0.2s ease;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-    }
-     button:hover {
-        background-color: #F0F0F0;  /* Blue on Hover */
-        transform: scale(1.05);     /* Slight zoom effect */
-        color: black;
-    }
-    button:disabled {
-        background-color: #A9A9A9;  /* Grey when disabled */
-        cursor: not-allowed;
-    }
-    """,
-):
-    reset_fdr_clicked = st.button("Reset FDR Analysis", key="reset_fdr")
+        button {background-color: #FF000066; color: black; font-weight: bold; width: 100%;}
+        button:hover { background-color: #003043; transform: scale(1.05); }
+        button:disabled { background-color: #A9A9A9;  cursor: not-allowed;}
+    """):
+    reset_fdr_clicked = st.button("Reset FDR Analysis", 
+                                  key="reset_fdr"
+                                  )
 
 
 # ✅ Add a reset button to clear the session state after results are shown
 if st.session_state["run_fdr_clicked"]:
     if reset_fdr_clicked:
         st.session_state["run_fdr_clicked"] = False  # Reset state
+        st.session_state["neg_fdr_cutoff"] = -0.5  # Reset to default
+        st.session_state["pos_fdr_cutoff"] = 0.5  # Reset to default
+        st.session_state["filtered_target"] = None  # Reset filtered target
+        st.session_state["filtered_target_csv"] = None
         st.rerun()  # Force Streamlit to refresh

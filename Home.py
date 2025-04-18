@@ -43,18 +43,11 @@ st.write("""
 
 st.write("""
 ### Data Preparation Essentials
+#### 1. Feature Table
+- Both your Metabolomics and Proteomics/Genomics feature tables must include a column called: `feature_ID`
+- If your table contains a column like `row ID`, `index`, or other identifiers, rename it to `feature_ID`.
+This applies to both Omics 1 and Omics 2 tables.
          
-**Metadata must include the following columns:**  
-- `filename` → Filenames of the metabolite quantification table (**must match .mzML files**).  
-- `ATTRIBUTE_Corromics_filename` → Filenames of proteomics/metagenomics data (**e.g., fasta or other omics files**).  
-
-**Metadata can include additional columns such as:**  
-- `Replicates` → Identifies biological/technical replicates.  
-- `Sample_type` → Defines sample conditions (**e.g., control, treatment**).  
-- Other relevant experimental attributes.  
-""")
-
-st.markdown("""          
 Example feature table:  
  
 |feature_ID|sample1.mzML|sample2.mzML|blank.mzML|
@@ -63,6 +56,42 @@ Example feature table:
 |2|2000|2200|200|
 """)
 
+st.markdown("""          
+
+#### 2. Metadata
+##### Metadata **must include** the following columns: 
+- `filename` → Filenames of the metabolite quantification table (**must match .mzML files**).  
+- `ATTRIBUTE_Corromics_filename` → Filenames of proteomics/metagenomics data (**e.g., fasta or other omics files**). 
+
+These two columns are mandatory for linking and filtering. 
+
+##### Metadata Optional columns:
+- `Sample_type` → Defines sample conditions (**e.g., control, treatment**).  
+- Other relevant experimental attributes. 
+  
+These additional columns can be used for filtering the samples from the metabolomics feature table in the 'Data Filter' step.""")
+
+with st.expander("About ATTRIBUTE_taxa (Optional Hierarchical Info)"):
+    st.info(
+        "If your **second omics table** contains **hierarchical or taxonomic columns** (e.g., Phylum, Genus, Species), "
+        " you can specify them using the `ATTRIBUTE_taxa` column in your metadata table.\n\n"
+        "- These should be **column names**, not filenames or sample names.\n"
+        "- This field is **independent** of the `filename` column.\n"
+        "- You do **not** need to fill it for all rows — just list the names once in any row.\n"
+        "- For example, if your omics table has columns `Phylum`, `Genus`, `Species`, you can write:\n"
+        "`Phylum, Genus, Species`\n\n"
+        "- This helps the app detect and organize hierarchical groupings. Check out the **example dataset** in the app for reference.")
+
+    st.markdown("""
+                Example metadata table:
+                |filename|ATTRIBUTE_Corromics_filename|Sample_Type|Time_Point|ATTRIBUTE_taxa|
+                |---|---|---|---|---|
+                |sample1.mzML|sample1.fasta|Sample|1h|Phylum|
+                |sample2.mzML|sample2.fasta|Sample|2h|Genus|
+                |sample3.mzML|sample3.fasta|Sample|3h| |
+                |blank.mzML|---|Blank|N/A|---|
+                """)
+    
 st.write(' ')
 
 st.markdown("""        
@@ -72,7 +101,8 @@ Example metadata table:
 |---|---|---|---|
 |sample1.mzML|sample1.fasta|Sample|1h|
 |sample2.mzML|sample2.fasta|Sample|2h|
-|blank.mzML|---|---|Blank|N/A| 
+|sample3.mzML|sample3.fasta|Sample|3h| 
+|blank.mzML|---|Blank|N/A|
 """)
 
 # Output Files

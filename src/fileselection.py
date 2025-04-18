@@ -50,7 +50,7 @@ def load_ft(ft_file):
     Returns:
     DataFrame: Processed feature table.
     """
-    ft = open_df(ft_file)
+    ft = open_df(ft_file).set_index("feature_ID")
     ft = ft.dropna(axis=1)  # Drop columns with missing values
     return ft
 
@@ -64,14 +64,14 @@ def load_md(md_file):
     Returns:
     DataFrame: Processed metadata.
     """
-    md = open_df(md_file)
+    md = open_df(md_file).set_index("filename")
     return md
 
 def load_omics_ft(omics_ft_file):
     """
     Load and process the quantification table from proteomics/genomics study. 
     """
-    omics_ft = open_df(omics_ft_file)
+    omics_ft = open_df(omics_ft_file).set_index("feature_ID")
     return omics_ft
 
 def display_dataframe_with_toggle(df_key, display_name):
@@ -214,7 +214,7 @@ def check_columns(md, ft):
         ft_cols_not_in_md = [col for col in ft.columns if col not in md.index]
         if ft_cols_not_in_md:
             st.warning(
-                f"These {len(ft_cols_not_in_md)} columns of feature table are not present in metadata column **'ATTRIBUTE_Corromics_filename'** and will be removed:\n\n"
+                f"These {len(ft_cols_not_in_md)} columns of feature table are not present in metadata column **'ATTRIBUTE_Corromics_filename'** and will be removed from the feature table:\n\n"
                 + f"\n\n{', '.join(ft_cols_not_in_md)}"
                 )
 
@@ -224,7 +224,7 @@ def check_columns(md, ft):
         md_rows_not_in_ft = [row for row in md.index if row not in ft.columns]
         if md_rows_not_in_ft:
             st.warning(
-                f"These {len(md_rows_not_in_ft)} rows of metadata table are not present in feature table and will be removed:\n{', '.join(md_rows_not_in_ft)}"
+                f"These {len(md_rows_not_in_ft)} rows of metadata table are not present in feature table and will be removed from the metadata table:\n{', '.join(md_rows_not_in_ft)}"
             )
             md = md.drop(md_rows_not_in_ft)
     return md, ft
@@ -335,6 +335,20 @@ def bin_by_taxonomic_level(df, taxonomic_level):
 
     return binned_df
 
+@st.cache_data
+def bin_by_flat_id(df):
+    # Step 1: Drop fully empty rows and columns
+    df_clean = df.dropna(how='all').dropna(axis=1, how='all')
+
+    # Step 2: Keep only numeric columns
+    numeric_df = df_clean.select_dtypes(include="number").copy()
+
+    # Step 3: Add overall sum across numeric values
+    numeric_df["Overall_sum"] = numeric_df.sum(axis=1)
+
+    # Step 4: Return DataFrame with original index
+    return numeric_df
+
 
 # Function to check for empty rows, rows with a singular same value, or rows full of zeros
 
@@ -353,4 +367,52 @@ def check_rows(df, exclude_cols=['index', 'overall_sum']):
     zero_rows = df[df[numeric_cols].fillna(0).sum(axis=1) == 0]
 
     return empty_rows, singular_value_rows, zero_rows
+
+def filter_by_overall_sum(df, exclude_cols=None, label_prefix=""):
+    """
+    Adds UI widgets to filter a DataFrame by 'Overall_sum' column.
+    
+    Parameters:
+        df (DataFrame): Must contain an 'Overall_sum' column.
+        exclude_cols (list): Columns to exclude from later transformations.
+        label_prefix (str): Optional label prefix to distinguish keys if re-used in multiple places.
+
+    Returns:
+        filtered_df (DataFrame): DataFrame filtered by threshold sliders.
+        exclude_cols (list): The columns to exclude in downstream processing.
+    """
+    if exclude_cols is None:
+        exclude_cols = ['index', 'Overall_sum']
+
+    max_overall_sum = df['Overall_sum'].max()
+    filter_col1, filter_col2 = st.columns(2)
+
+    with filter_col1:
+        st.session_state[f'{label_prefix}filter_threshold_below'] = st.number_input(
+            "**Filter out data with reads/intensities below the user input. Press Enter to apply.**", 
+            min_value=0.0, 
+            value=0.0, 
+            step=1.0,
+            help="**All variables with a total read/intensity below this threshold will be removed from analysis.**",
+            key=f"{label_prefix}filter_below"
+        )
+
+    with filter_col2:
+        st.session_state[f'{label_prefix}filter_threshold_above'] = st.number_input(
+            "**Filter out data with reads/intensities above this value. Press Enter to apply.**", 
+            max_value=float(max_overall_sum),
+            value=float(max_overall_sum),
+            step=1.0,
+            help="**All variables with a total read/intensity ABOVE this threshold will be removed from analysis.**",
+            key=f"{label_prefix}filter_above"
+        )
+
+    filtered_df = df[
+        (df['Overall_sum'] > st.session_state[f'{label_prefix}filter_threshold_below']) &
+        (df['Overall_sum'] <= st.session_state[f'{label_prefix}filter_threshold_above'])
+    ]
+
+    return filtered_df, exclude_cols
+
+
 

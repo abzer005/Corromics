@@ -20,12 +20,6 @@ def combine_dataframes(df1, df2):
 
     # Combine the DataFrames
     combined = pd.concat([df1_aligned, df2_aligned], axis=0)
-
-    # Reset index and add 'ID' column
-    combined.reset_index(inplace=True)
-    combined.rename(columns={"index": "ID"}, inplace=True)
-    combined.set_index("ID", inplace=True)
-
     return combined
 
 def calculate_single_asv(asv_index, metabolomics, asvs, method="pearson"):
@@ -148,6 +142,8 @@ def melt_correlation_results(results):
         df = df.copy()
         df["Feature"] = df.index  # Index as Feature
         df["Variable"] = asv_name  # ASV name as Variable
+        df["P-value"] = df["P-value"].apply(lambda x: f"{x:.2e}")
+        df["BH-Corrected P-Value"] = df["BH-Corrected P-Value"].apply(lambda x: f"{x:.2e}")
 
         # Rearrange columns so Feature and Variable are first
         df = df[["Feature", "Variable"] + list(df.columns[:-2])]  # Reorder columns
