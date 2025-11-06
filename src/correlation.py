@@ -7,7 +7,7 @@ from statsmodels.stats.multitest import multipletests
 from multiprocessing import Pool
 import psutil
 import os
-
+import time
 
 def combine_dataframes(df1, df2):
 
@@ -54,11 +54,66 @@ def calculate_single_asv(asv_index, metabolomics, asvs, method="pearson"):
     return result
 
 
-def calculate_correlations_parallel(df, metabolome_ft, genome_ft, num_workers=4):
+# def calculate_correlations_parallel(df, metabolome_ft, genome_ft, num_workers=4):
+#     """
+#     Faster correlation calculation using parallel processing.
+#     """
+#     method = st.session_state.get("method", "pearson") 
+
+#     transposed_df = df.T
+#     length_metabolome = metabolome_ft.shape[0]
+#     length_genome = genome_ft.shape[0]
+
+#     metabolome_names = metabolome_ft.index
+#     asv_names = genome_ft.index
+
+#     # Extract metabolomics and ASV columns
+#     metabolomics = transposed_df.iloc[:, :length_metabolome].values
+#     asvs = transposed_df.iloc[:, length_metabolome:length_metabolome + length_genome].values
+    
+#     # Use multiprocessing to calculate correlations in parallel
+#     with Pool(processes=num_workers) as pool:
+#         results = pool.starmap(calculate_single_asv, 
+#                                [(i, metabolomics, asvs, method) for i in range(asvs.shape[1])])
+        
+#     results_with_indices = {
+#         asv_names[i]: pd.DataFrame(
+#             results[i],
+#             index=metabolome_names,
+#             columns=["Estimate", "P-value", "BH-Corrected P-Value", "R2"]
+#         )
+#         for i in range(len(asv_names))
+#     }
+
+#     return results_with_indices
+
+
+def _single_asv_wrapper(args):
+    """
+    Wrapper so we get both index and result back from pool.imap_unordered.
+    """
+    i, metabolomics, asvs, method = args
+    res = calculate_single_asv(i, metabolomics, asvs, method)
+    return i, res
+
+def calculate_correlations_parallel(df, metabolome_ft, genome_ft, num_workers=4, progress_callback=None):
     """
     Faster correlation calculation using parallel processing.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Combined dataframe (samples × (metabolites + omics)).
+    metabolome_ft : pd.DataFrame
+        Metabolomics feature table (features in rows).
+    genome_ft : pd.DataFrame
+        Other omics feature table (features in rows).
+    num_workers : int
+        Number of parallel processes.
+    progress_callback : callable or None
+        Function (done, total, est_left_seconds) for progress + ETA updates.
     """
-    method = st.session_state.get("method", "pearson") 
+    method = st.session_state.get("method", "pearson")
 
     transposed_df = df.T
     length_metabolome = metabolome_ft.shape[0]
@@ -70,12 +125,30 @@ def calculate_correlations_parallel(df, metabolome_ft, genome_ft, num_workers=4)
     # Extract metabolomics and ASV columns
     metabolomics = transposed_df.iloc[:, :length_metabolome].values
     asvs = transposed_df.iloc[:, length_metabolome:length_metabolome + length_genome].values
-    
-    # Use multiprocessing to calculate correlations in parallel
+
+    total = asvs.shape[1]  # one result per ASV
+    args_list = [
+        (i, metabolomics, asvs, method)
+        for i in range(total)
+    ]
+
+    results = [None] * total  # to keep order by ASV index
+    start_time = time.time()
+
     with Pool(processes=num_workers) as pool:
-        results = pool.starmap(calculate_single_asv, 
-                               [(i, metabolomics, asvs, method) for i in range(asvs.shape[1])])
-        
+        # imap_unordered yields results as they complete
+        for done, (i, res) in enumerate(pool.imap_unordered(_single_asv_wrapper, args_list), start=1):
+            results[i] = res
+
+            # Progress callback
+            if progress_callback is not None and total > 0:
+                elapsed = time.time() - start_time
+                avg_time = elapsed / done
+                est_total = avg_time * total
+                est_left = max(0, est_total - elapsed)
+                progress_callback(done, total, est_left)
+
+    # Build result dict same as before
     results_with_indices = {
         asv_names[i]: pd.DataFrame(
             results[i],
@@ -86,6 +159,7 @@ def calculate_correlations_parallel(df, metabolome_ft, genome_ft, num_workers=4)
     }
 
     return results_with_indices
+
 
 def merge_asv_correlation_results(results, target_df, genome_ft):
     """
@@ -155,6 +229,109 @@ def melt_correlation_results(results):
     final_df = pd.concat(melted_results, axis=0, ignore_index=True)
 
     return final_df
+
+
+import numpy as np
+import pandas as pd
+import streamlit as st
+
+def apply_transformation(df: pd.DataFrame, exclude_cols=None, key_prefix=""):
+    """
+    Interactive Streamlit widget for choosing and applying a transformation.
+
+    Assumptions:
+    - Rows = features, columns = samples.
+    - Index (feature_ID) and any column named 'index' are not transformed.
+    """
+
+    if exclude_cols is None:
+        exclude_cols = []
+
+    method = st.radio(
+        "Select Transformation",
+        [
+            "None",
+            "Impute only (0s to 1)",
+            "log2",
+            "log10",
+            "CLR",
+            "Relative abundance",
+            "Relative abundance (no imputation)",
+        ],
+        horizontal=True,
+        key=f"{key_prefix}_transform_method",
+    )
+
+    st.caption(
+        "- **Impute only**: replace 0s with 1.\n"
+        "- **log2 / log10 / CLR**: will internally impute 0 → 1 before log.\n"
+        "- **Relative abundance**: will impute 0 → 1, then normalize each sample.\n"
+        "- **Relative abundance (no imputation)**: just normalize, keeps 0s as 0."
+    )
+
+    df_transformed = df.copy()
+
+    # Columns to actually transform (skip 'index' and any explicitly excluded)
+    exclude_set = set(exclude_cols) | {"index"}
+    cols_to_transform = [c for c in df_transformed.columns if c not in exclude_set]
+
+    if method == "None":
+        st.info("No transformation applied.")
+        return df_transformed, method
+
+    if method == "Impute only (0s to 1)":
+        if cols_to_transform:
+            df_transformed[cols_to_transform] = df_transformed[cols_to_transform].replace(0, 1)
+        st.success("✅ Imputation applied (0 → 1).")
+        return df_transformed, method
+
+    if method == "log2":
+        if cols_to_transform:
+            X = df_transformed[cols_to_transform].replace(0, 1).astype(float)
+            df_transformed[cols_to_transform] = np.log2(X)
+        st.success("✅ Applied log2 (with 0 → 1 imputation).")
+        return df_transformed, method
+
+    if method == "log10":
+        if cols_to_transform:
+            X = df_transformed[cols_to_transform].replace(0, 1).astype(float)
+            df_transformed[cols_to_transform] = np.log10(X)
+        st.success("✅ Applied log10 (with 0 → 1 imputation).")
+        return df_transformed, method
+
+    if method == "CLR":
+        if cols_to_transform:
+            X = df_transformed[cols_to_transform].replace(0, 1).astype(float)
+            # geometric mean per row
+            gm = np.exp(np.log(X).mean(axis=1))
+            clr_values = np.log(X.div(gm, axis=0))
+            df_transformed[cols_to_transform] = clr_values
+        st.success("✅ Applied CLR (with 0 → 1 imputation).")
+        return df_transformed, method
+
+    if method == "Relative abundance":
+        if cols_to_transform:
+            X = df_transformed[cols_to_transform].replace(0, 1).astype(float)
+            col_sums = X.sum(axis=0).replace(0, np.nan)
+            rel = X.div(col_sums, axis=1)
+            df_transformed[cols_to_transform] = rel
+        st.success("✅ Applied Relative abundance (with 0 → 1 imputation).")
+        return df_transformed, method
+
+    if method == "Relative abundance (no imputation)":
+        if cols_to_transform:
+            X = df_transformed[cols_to_transform].astype(float)
+            col_sums = X.sum(axis=0).replace(0, np.nan)
+            rel = X.div(col_sums, axis=1)
+            df_transformed[cols_to_transform] = rel
+        st.success("✅ Applied Relative abundance (no imputation).")
+        return df_transformed, method
+
+    # Fallback (should never hit)
+    st.warning("No valid transformation matched. Returning original data.")
+    return df, "None"
+
+
 
 # Function to estimate the size of the DataFrame in MB
 def estimate_df_size(df):

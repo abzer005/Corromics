@@ -1,8 +1,8 @@
 import streamlit as st
 from .common import *  # Importing common functionalities from the 'common' module
 import pandas as pd
-import re
 import numpy as np
+import re
 
 patterns = [
     ["m/z", "mz", "mass over charge"],
@@ -33,46 +33,242 @@ def load_example():
     Load example datasets into Streamlit's session state.
     """
     # Reset session state data
-    for key in ['ft', 'md', 'omics_ft']:
+    for key in ['md','ft', 'omics_ft']:
         st.session_state[key] = None
         
-    st.session_state['ft'] = open_df("example-data/Normalised_Quant_table.csv").set_index("feature_ID")
     st.session_state['md'] = open_df("example-data/metadata_example.csv").set_index("filename")
+    st.session_state['ft'] = open_df("example-data/Normalised_Quant_table.csv").set_index("feature_ID")
     st.session_state['omics_ft'] = open_df("example-data/asv_16s_table_with_taxonomic_levels.csv").set_index("feature_ID")
+
+@st.cache_data
+def load_md(md_file):
+    """
+    Load and process metadata. Set 'filename' as the index if present.
+    Parameters: md_file (file): The metadata file.
+    Returns: Processed metadata.
+    """
+    md = open_df(md_file).set_index("filename")
+    return md
     
+
+@st.cache_data
 def load_ft(ft_file):
     """
     Load and process the feature table.
-
-    Parameters:
-    ft_file (file): The feature table file.
-
-    Returns:
-    DataFrame: Processed feature table.
+    Parameters: ft_file (file): The feature table file.
+    Returns: Processed feature table.
     """
     ft = open_df(ft_file).set_index("feature_ID")
     ft = ft.dropna(axis=1)  # Drop columns with missing values
     return ft
 
-def load_md(md_file):
-    """
-    Load and process metadata. Set 'filename' as the index if present.
 
-    Parameters:
-    md_file (file): The metadata file.
-
-    Returns:
-    DataFrame: Processed metadata.
+@st.cache_data
+def load_ft_from_statsapp(
+    ft_df: pd.DataFrame,
+    md_df: pd.DataFrame,
+):
     """
-    md = open_df(md_file).set_index("filename")
-    return md
+    Process FBMN-Stats feature table:
+    - Remove metadata columns (keep only feature columns starting with a digit)
+    - Detect sample identifiers from index
+    - Map sample IDs to full filenames (e.g. 'spiked_1.mzML') using metadata
+    - Transpose so rows = features, cols = samples
+    - Set index name to 'feature_ID'
+    """
+
+ # -------------------------
+     # --- 1. Use first column as sample IDs and drop it from data ---
+    sample_col = ft_df.columns[0]
+    ft_df.index = ft_df.iloc[:, 0].astype(str)
+    ft_df.drop(columns=[sample_col], inplace=True)
+    
+    # --- 2. Get filenames from metadata (index = filename) ---
+    if md_df.index.name is None:
+        st.error("Metadata index is not set. Please set it to the 'filename' column.")
+        return None
+    
+    md_filenames = pd.Series(md_df.index.astype(str), index=md_df.index)
+    md_basenames = md_filenames.str.rsplit(".", n=1).str[0]
+    basename_to_full = dict(zip(md_basenames, md_filenames.astype(str)))
+
+    # --- 3. Keep only feature columns (start with a digit) ---
+    def is_feature_col(col):
+        col_str = str(col).strip()
+        return len(col_str) > 0 and col_str[0].isdigit()
+
+    feature_cols = [c for c in ft_df.columns if is_feature_col(c)]
+    if not feature_cols:
+        st.error(
+            "No feature columns detected in FBMN-Stats table "
+            "(no columns starting with a digit)."
+        )
+        return None
+
+    ft = ft_df[feature_cols].copy()
+
+    # # --- 4. Map sample IDs (index) to full filenames ---
+    new_index = []
+    missing = []
+
+    for idx in ft.index.astype(str):
+        if idx in basename_to_full:
+            new_index.append(basename_to_full[idx])  # e.g. file1 -> file1.mzML
+        else:
+            new_index.append(idx)
+            missing.append(idx)
+
+    ft.index = new_index
+
+    if missing:
+        st.warning(
+            f"{len(missing)} sample(s) could not be matched to metadata filenames. "
+            f"Example unmatched: {list(missing)[:5]}"
+        )
+
+    ft_t = ft.T
+    ft_t.index.name = "feature_ID"
+
+    return ft_t
+
+
+@st.cache_data
+def load_ft_from_mzmine(ft_df: pd.DataFrame,
+                        md_df: pd.DataFrame):
+    """
+    Process MZmine feature table:
+    - Features are rows, samples are columns
+    - Build feature_ID from 'row ID', 'row m/z', 'row retention time'
+    - Set feature_ID as index
+    - Match sample columns to metadata filenames (md_df.index)
+      * If metadata filenames contain 'Peak area' -> match directly
+      * Otherwise, strip ' Peak area' suffix from MZmine column names
+        when matching and rename columns to metadata filenames.
+    """
+
+    # --- 1. Check required columns ---
+    required_cols = ["row ID", "row m/z", "row retention time"]
+    missing_req = [c for c in required_cols if c not in ft_df.columns]
+    if missing_req:
+        st.error(f"MZmine feature table is missing required columns: {missing_req}")
+        return None
+
+    # Metadata must use filenames as index
+    if md_df.index.name is None:
+        st.error(
+            "Metadata index is not set.\n"
+            "Please ensure the metadata table uses the filename column as its index."
+        )
+        return None
+
+    ft = ft_df.copy()
+
+    # --- 2. Build feature_ID and set as index ---
+    ft["feature_ID"] = (
+        ft["row ID"].astype(str)
+        + "_"
+        + ft["row m/z"].astype(str)
+        + "_"
+        + ft["row retention time"].astype(str)
+    )
+
+    ft.set_index("feature_ID", inplace=True)
+    ft.index.name = "feature_ID"
+
+    # Drop the original ID/mz/RT columns
+    ft.drop(columns=required_cols, inplace=True)
+
+    # --- 3. Prepare metadata filenames and Peak area logic ---
+    md_filenames = set(md_df.index.astype(str))
+    md_has_peak_area = any("peak area" in s.lower() for s in md_filenames)
+
+    sample_cols = []
+    rename_map = {}  # old_col -> new_col (metadata filename)
+
+    # --- 4. Select and align sample columns ---
+    if md_has_peak_area:
+        # Case 1: metadata filenames already include 'Peak area' – match directly
+        for c in ft.columns:
+            c_str = str(c)
+            if c_str in md_filenames:
+                sample_cols.append(c)
+        info_msg = "Matching MZmine columns directly to metadata filenames."
+    else:
+        # Case 2: metadata filenames do NOT include 'Peak area'
+        # Strip ' Peak area' suffix from MZmine column names when matching
+        for c in ft.columns:
+            c_str = str(c)
+            lower = c_str.lower()
+            base = c_str
+
+            # remove ' peak area' suffix at the end, case-insensitive
+            suffix = " peak area"
+            if lower.endswith(suffix):
+                base = c_str[:len(c_str) - len(suffix)].rstrip()
+
+            if base in md_filenames:
+                sample_cols.append(c)
+                rename_map[c] = base  # rename to pure filename
+
+        info_msg = (
+            "Matching MZmine columns to metadata filenames after stripping "
+            "' Peak area' suffix where present."
+        )
+
+    if sample_cols:
+        st.info(info_msg)
+
+    dropped_cols = [c for c in ft.columns if c not in sample_cols]
+    if dropped_cols:
+        st.info(
+            f"Dropping {len(dropped_cols)} non-sample columns from MZmine table "
+            "(not present in metadata filenames)."
+        )
+
+    # Keep only matching columns
+    ft = ft[sample_cols].copy()
+
+    # Apply renaming (for the non-peak-area metadata case)
+    if rename_map:
+        ft.rename(columns=rename_map, inplace=True)
+
+    return ft
+
+
 
 def load_omics_ft(omics_ft_file):
     """
     Load and process the quantification table from proteomics/genomics study. 
     """
-    omics_ft = open_df(omics_ft_file).set_index("feature_ID")
-    return omics_ft
+ # 1) Read file into DataFrame
+    df = open_df(omics_ft_file)
+    if df is None or df.empty:
+        return df  # or raise / log if you prefer
+
+    # 2) Standardize first column as feature_ID
+    first_col = df.columns[0]
+    if first_col != "feature_ID":
+        df.rename(columns={first_col: "feature_ID"}, inplace=True)
+
+    df.set_index("feature_ID", inplace=True)
+    df.index.name = "feature_ID"
+
+    return df
+
+def standardize_other_omics_ft(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Standardize the 'other omics' feature table:
+    - Treat the first column as feature IDs
+    - Rename it to 'feature_ID'
+    - Set it as the index
+    """
+    df = df.copy()
+    first_col = df.columns[0]
+    if first_col != "feature_ID":
+        df.rename(columns={first_col: "feature_ID"}, inplace=True)
+    df.set_index("feature_ID", inplace=True)
+    df.index.name = "feature_ID"
+    return df
 
 def display_dataframe_with_toggle(df_key, display_name):
     if df_key in st.session_state and isinstance(st.session_state[df_key], pd.DataFrame):
@@ -91,6 +287,33 @@ def display_dataframe_with_toggle(df_key, display_name):
         else:
             st.dataframe(st.session_state[df_key].head())  # Show header
 
+
+def show_input_tables_in_tabs():
+    """
+    Display Metadata, Metabolomics FT, and Other Omics FT
+    in three tabs with shape info and full table view.
+    """
+    tab_defs = [
+        ("md", "Metadata"),
+        ("ft", "Metabolomics Feature Table"),
+        ("omics_ft", "Other Omics Feature Table"),
+    ]
+
+    tabs = st.tabs([label for _, label in tab_defs])
+
+    for tab, (key, label) in zip(tabs, tab_defs):
+        with tab:
+            df = st.session_state.get(key)
+
+            if isinstance(df, pd.DataFrame) and not df.empty:
+                # Show shape info
+                num_rows, num_cols = df.shape
+                st.caption(f"{num_rows} rows × {num_cols} columns")
+
+                # Show full dataframe
+                st.dataframe(df, use_container_width=True)
+            else:
+                st.info(f"{label} not loaded yet.")
 
 ##### Cleanup functions
 

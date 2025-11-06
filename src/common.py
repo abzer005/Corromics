@@ -69,7 +69,6 @@ def reset_dataframes():
         st.session_state[key] = pd.DataFrame()
 
 
-
 def open_df(file):
     separators = {"txt": "\t", "tsv": "\t", "csv": ","}
     try:
@@ -92,6 +91,33 @@ def open_df(file):
         return df
     except:
         return pd.DataFrame()
+    
+import pandas as pd
+
+def open_stats_ft(file):
+    """
+    Read FBMN-Stats feature table without dropping the first (index) column.
+    Unlike open_df(), this keeps 'Unnamed: 0' so we can use it as sample IDs.
+    """
+    separators = {"txt": "\t", "tsv": "\t", "csv": ","}
+    try:
+        if isinstance(file, str):
+            ext = file.split(".")[-1]
+            if ext != "xlsx":
+                df = pd.read_csv(file, sep=separators.get(ext, ","))
+            else:
+                df = pd.read_excel(file)
+        else:
+            ext = file.name.split(".")[-1]
+            if ext != "xlsx":
+                df = pd.read_csv(file, sep=separators.get(ext, ","))
+            else:
+                df = pd.read_excel(file)
+
+        return df
+    except Exception:
+        return pd.DataFrame()
+
 
 def show_table(df, title="", col="", download=True):
     if col:
@@ -182,6 +208,3 @@ def initialize_app():
             st.warning(f"⚠️ Restricted mode is active: \nMax correlation limit: **{get_max_correlation_limit():,}**")
         else:
             st.success(f"App running in **local mode**.\nMax correlation limit: **{get_max_correlation_limit():,}**")
-
-
- 

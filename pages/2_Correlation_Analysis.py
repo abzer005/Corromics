@@ -9,13 +9,13 @@ from streamlit_extras.stylable_container import stylable_container
 import random
 import time
 
-
+page_setup()
 initialize_app()
 st.session_state['max_corr'] = get_max_correlation_limit()
 
 ##########################################################################
 
-st.markdown("## Metabolomics-Metagenomics Data Combined")
+st.markdown("## Omics Data Combined")
 
 if ('rearranged_omics_table' in st.session_state and not st.session_state['rearranged_omics_table'].empty):
     omics_rearranged = st.session_state['rearranged_omics_table']
@@ -69,25 +69,13 @@ if ('rearranged_omics_table' in st.session_state and not st.session_state['rearr
     
     binned_level_filtered, exclude_cols = filter_by_overall_sum(binned_by_level, label_prefix="table2_")
 
-    # Checkboxes for selecting transformations
-    apply_imputation = st.checkbox("Apply Imputation (Replace 0s with 1) on the binned data", key="imputation_checkbox")
-    apply_log_transform = st.checkbox("Apply Log Transformation (log10) on the binned data", key="log_transform_checkbox")
+    binned_level_filtered, method_used = apply_transformation(
+        binned_level_filtered,
+        exclude_cols=["feature_ID"],
+        key_prefix="binned"
+        )
 
-    # Step 1: Apply Imputation (if selected)
-    if apply_imputation:
-        for col in binned_level_filtered.columns:
-            if col not in exclude_cols:
-                binned_level_filtered[col] = binned_level_filtered[col].replace(0, 1)
-
-    # Step 2: Apply Log Transformation (if selected)
-    if apply_log_transform:
-        # Ensure no zeros before log transformation
-        for col in binned_level_filtered.columns:
-            if col not in exclude_cols:
-                binned_level_filtered[col] = binned_level_filtered[col].replace(0, 1)
-                binned_level_filtered[col] = np.log10(binned_level_filtered[col])
-
-    # Step 3: Recalculate 'Overall_Sum' after transformations
+    # Recalculate 'Overall_Sum' after transformations
     numeric_cols = [col for col in binned_level_filtered.columns if col not in exclude_cols]
     binned_level_filtered['Overall_sum'] = binned_level_filtered[numeric_cols].sum(axis=1)
 
@@ -199,16 +187,41 @@ if all(key in st.session_state for key in ['target_dataframe', 'decoy_dataframe'
         else:
             st.session_state["processing"] = True  # Set processing flag
 
+            # Placeholders for live progress
+            status_text = st.empty()
+            progress_bar = st.progress(0.0)
+
+            def corr_progress(done, total, est_left):
+                fraction = done / total if total else 0.0
+                progress_bar.progress(fraction)
+
+                est_left_sec = int(est_left)
+                mins, secs = divmod(est_left_sec, 60)
+                if mins > 0:
+                    time_str = f"~{mins} min {secs} s left"
+                else:
+                    time_str = f"~{secs} s left"
+
+                status_text.info(
+                    f"Calculating correlations: **{done:,}/{total:,}** "
+                    f"({fraction:.1%}): {time_str}"
+                    )
+
+
             with st.spinner("Calculating correlations..."):
                 st.session_state['target_results'] = calculate_correlations_parallel(
                     st.session_state['target_dataframe'], 
                     st.session_state['metabolome_ft'], 
-                    st.session_state['target_omics']
+                    st.session_state['target_omics'],
+                    num_workers=4,
+                    progress_callback=corr_progress,
                 )
                 st.session_state['decoy_results'] = calculate_correlations_parallel(
                     st.session_state['decoy_dataframe'], 
                     st.session_state['metabolome_ft'], 
-                    st.session_state['decoy_omics']
+                    st.session_state['decoy_omics'],
+                    num_workers=4,
+                    progress_callback=corr_progress,
                 )
 
             st.session_state["processing"] = False  # Reset flag when done

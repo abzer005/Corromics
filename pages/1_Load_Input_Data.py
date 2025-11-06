@@ -4,103 +4,153 @@ import pandas as pd
 from src.common import *        # Importing common functionalities
 from src.fileselection import * # Importing file selection functionalities
 
+page_setup()
 initialize_app()
 
 # Introduction Section
-st.markdown("### Please select your method for data input below.")
+st.markdown("## Please select your method for data input below.")
 
+# -------------------------------
 # Input Selection Section
-input_method = st.selectbox("Select Input Method", 
-                            ["Use Example Dataset",
-                             "Manual Input",
-                             ],
-                             index=1,
-                             key="input_method",
-                             )
+# -------------------------------
+input_method = st.selectbox(
+    "Select Input Method", 
+    [
+        "Use Example Dataset",
+        "Manual Input (Custom Data)",
+        "FBMN-Stats Output (Metabolomics Table)",
+        "MZmine Export (Metabolomics Table)",
+    ],
+    index=1,
+    key="input_method",
+)
 
-# Clearing the session state 
-if 'last_input_method' not in st.session_state:
-    st.session_state['last_input_method'] = None
+# --- Initialize session_state keys if not present ---
+for key in ['md', 'ft', 'omics_ft', 'last_input_method']:
+    if key not in st.session_state:
+        st.session_state[key] = None
 
-# Example Dataset Section
+# --- Detect change in input method ---
+if st.session_state.get('last_input_method') != input_method:
+    # Clear all previous dataframes
+    for key in ['md', 'ft', 'omics_ft']:
+        st.session_state[key] = None
+
+    # Update the tracker
+    st.session_state['last_input_method'] = input_method
+    st.rerun() # Rerun to reset the UI
+
+# ============================================================
+# 1. Example Dataset (special: loads all three)
+# ============================================================
 if input_method == "Use Example Dataset":
-    
-    # Check if input method has changed
-    if st.session_state['last_input_method'] != st.session_state["input_method"]:
-        st.write()
-        # Clear the data
-        for key in ['ft', 'omics_ft', 'md', ]:
-            st.session_state[key] = None
+    if (
+        st.session_state['md'] is None
+        and st.session_state['ft'] is None
+        and st.session_state['omics_ft'] is None
+    ):
+        load_example()  # should fill md, ft, omics_ft
 
-        # Update the last input method
-        st.session_state['last_input_method'] = st.session_state["input_method"]
-        
-        load_example()  # Load data into session state
+    show_input_tables_in_tabs()
+    #st.stop()  # don't show uploaders below in this mode
 
-    for file_name, key in zip(["Metabolomics Feature Table", 
-                               "Proteomics/Genomics Feature Table",
-                               "MetaData"],
-                              ['ft', 'omics_ft', 'md']):
-        if st.session_state.get(key) is not None:
-            display_dataframe_with_toggle(key, file_name)# Import necessary libraries
+# ==========================
+# All other input methods
+else:
+    # ---- 1. Metadata + Other Omics (global for all non-example modes) ----
+    st.markdown("#### Upload Metadata and Other Omics Tables")
 
+    col1, col2 = st.columns(2)
 
-# Manual Input Section
-if input_method == "Manual Input":
-
-    if st.session_state['last_input_method'] != input_method:
-        # Clear the data
-        for key in ['ft', 'omics_ft', 'md']:
-            st.session_state[key] = None
-
-        # Update the last input method
-        st.session_state['last_input_method'] = input_method
-
-    st.info("💡 Upload tables in txt (tab separated), tsv, csv or xlsx (Excel) format.")
-
-    # Create 3 columns for the ft, md file uploaders
-    col1, col2, col3 = st.columns(3)
     with col1:
-        ft_file = st.file_uploader("Upload Metabolomics Feature Table", 
-                                   type=["csv", "xlsx", "txt", "tsv"],
-                                   key="ft_upload",
-                                   help = "This table is a key output of LC-MS/MS metabolomics studies. The table presents a list of mass spectral features along with their relative intensities (represented by its integrated peak area) observed across various samples.")
-        if ft_file:
-            st.session_state['ft'] = load_ft(ft_file)
-
-    with col2:
-        omics_ft_file = st.file_uploader("Upload Proteomics/Genomics Feature Table", 
-                                        type=["csv", "xlsx", "txt", "tsv"],
-                                        key="omics_upload",
-                                        help = ("This table represents the key output of proteomics or genomics studies, "
-                                                "providing a list of proteins, genes, or other molecular entities along with their "
-                                                "quantification (e.g., expression levels or abundances) across various samples. "
-                                                "It is essential for integrating and correlating this dataset with metabolomics data."
-                                                )
-                                                )
-        if omics_ft_file:
-            st.session_state['omics_ft'] = load_omics_ft(omics_ft_file)
-    
-    with col3:
-        md_file = st.file_uploader("Upload Metadata", 
-                                   type=["csv", "xlsx", "txt", "tsv"],
-                                   key="md_upload",
-                                   help = "The metadata table is created by the user, providing additional context for the measured samples, such as sample type, species, and tissue type, etc.")
-        if md_file:
+        md_file = st.file_uploader(
+            "Upload Metadata",
+            type=["csv", "xlsx", "txt", "tsv"],
+            key="md_upload",
+            help=(
+                "Metadata table should contain `filename` and "
+                "`ATTRIBUTE_Corromics_filename` columns."
+            ),
+        )
+        if md_file is not None:
             st.session_state['md'] = load_md(md_file)
 
-    # Display headers and 'View all' buttons for each file
-    for file_name, key in zip(["Metabolomics Feature Table", 
-                               "Proteomics/Genomics Feature Table", 
-                               "Metabolomics MetaData"],
-                              ['ft', 'omics_ft', 'md']):
-        if st.session_state.get(key) is not None:
-            display_dataframe_with_toggle(key, file_name)
+    with col2:
+        omics_ft_file = st.file_uploader(
+            "Upload Other Omics Feature Table",
+            type=["csv", "xlsx", "txt", "tsv"],
+            key="omics_upload",
+            help=(
+                "Quantification table from ASV sequencing / proteomics / other omics. "
+                "The **first column** will be treated as the feature identifier, "
+                "renamed to `feature_ID`, and used as the index."
+            ),
+        )
+        if omics_ft_file is not None:
+            st.session_state['omics_ft'] = load_omics_ft(omics_ft_file)
 
-else:
-    # If data is not available, display a message
-    st.warning("Input data not loaded yet. Please load the data first.")
+    # ---- 2. Metabolomics feature table (depends on input_method) ----
+    st.markdown("#### Metabolomics Feature Table")
 
+    # Manual Input
+    if input_method == "Manual Input (Custom Data)":
+        ft_file = st.file_uploader(
+            "Upload Metabolomics Feature Table",
+            type=["csv", "xlsx", "txt", "tsv"],
+            key="ft_upload",
+            help=(
+                "The app will assume features as rows "
+                "and samples as columns after loading/processing."
+            ),
+        )
+        if ft_file is not None:
+            st.session_state['ft'] = load_ft(ft_file)
+
+    # FBMN-Stats Output
+    elif input_method == "FBMN-Stats Output (Metabolomics Table)":
+        ft_file = st.file_uploader(
+            "Upload FBMN-Stats Feature Table",
+            type=["csv", "xlsx", "txt", "tsv"],
+            key="ft_stats_upload",
+            help=(
+                "Feature table exported from the FBMN-Stats app. "
+                "Expected format: samples as rows, features as columns; "
+                "feature names like `ID_mz_RT` or `ID_mz_RT&name`."
+            ),
+        )
+        if ft_file is not None:
+            raw_ft = open_stats_ft(ft_file)
+            if not raw_ft.empty and st.session_state.get('md') is not None:
+                st.session_state['ft'] = load_ft_from_statsapp(
+                    raw_ft,
+                    st.session_state['md'],
+                )
+            elif not raw_ft.empty and st.session_state.get('md') is None:
+                st.warning("Please upload metadata first so sample names can be matched.")
+
+    # MZmine Export
+    elif input_method == "MZmine Export (Metabolomics Table)":
+        ft_file = st.file_uploader(
+            "Upload MZmine Feature Table",
+            type=["csv", "xlsx", "txt", "tsv"],
+            key="ft_mzmine_upload",
+            help=(
+                "Feature table exported from MZmine. Expected format: features as rows, "
+                "samples as columns, with 'row ID', 'row m/z', and 'row retention time' "
+                "columns to construct a unique `feature_ID`."
+            ),
+        )
+        if ft_file is not None:
+            raw_ft = open_df(ft_file)
+            if not raw_ft.empty and st.session_state.get('md') is not None:
+                st.session_state['ft'] = load_ft_from_mzmine(
+                    raw_ft,
+                    st.session_state['md'],
+                )
+            elif not raw_ft.empty and st.session_state.get('md') is None:
+                st.warning("Please upload metadata first so sample names can be matched.")
+
+    show_input_tables_in_tabs()
 
 st.markdown("## Data Filter")
 # Check if the data is available in the session state
@@ -115,11 +165,6 @@ if (
 
     ft = st.session_state['ft'].copy()
     md = st.session_state['md'].copy()
-    
-    # Get taxa information from metadata if available
-    # Check if the metadata contains the 'ATTRIBUTE_taxa' column
-    if 'ATTRIBUTE_taxa' in md.columns:
-        st.session_state['taxa_series'] = md['ATTRIBUTE_taxa'].dropna()
     
     # If data is available, proceed with cleanup and checks
     cleaned_ft = clean_up_ft(ft)
@@ -191,7 +236,7 @@ st.markdown("---")
 st.markdown("#### Filter the Other Omics Data")
 
 #------------------------------------------------------------------------------        
-#### Filter for the Genomics Data
+#### Filter for the other omics Data
 if (
     'omics_ft' in st.session_state and 
     'metabolome_md' in st.session_state and 
@@ -206,17 +251,6 @@ if (
     metabolome_ft = st.session_state['metabolome_ft'].copy()
 
     taxonomy_columns = []
-
-    if 'taxa_series' in st.session_state:
-        taxa_series = st.session_state['taxa_series']
-        
-        # Ensure column names are strings
-        omics_ft.columns = omics_ft.columns.astype(str)
-
-        # Extract valid taxonomy columns
-        taxonomy_columns = sorted(set(
-            col.strip() for col in taxa_series if col.strip() in omics_ft.columns
-        ))
 
     # Create mapping from 'Corromics_filename' to 'filename'
     metadata = omics_md[['ATTRIBUTE_Corromics_filename']].dropna()
@@ -234,7 +268,13 @@ if (
 
     valid_sample_columns = set(common_samples)
     st.session_state["valid_sample_columns"] = valid_sample_columns
+
+    taxonomy_columns = [
+        col for col in omics_ft.columns if col not in valid_sample_columns
+        ]
     
+    taxonomy_columns = sorted(taxonomy_columns)
+
     # uncomment the following if you wanna see all the other columns in addition to taxa columns
     # relevant_columns = [
     #     col for col in omics_ft.columns 
