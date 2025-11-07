@@ -37,7 +37,7 @@ conda init
 
 #Create and activate Conda environment
 echo "Creating Conda environment 'corromics_env'..."
-conda create -y -n corromics_env python=3.10
+conda create -y -n corromics_env python=3.11
 conda activate corromics_env
 
 # Step 3: Install dependencies
@@ -50,7 +50,7 @@ echo "All dependencies installed successfully!"
 # Step 4: Clone Corromics repository (if not already downloaded)
 if [ ! -d "$HOME/Corromics" ]; then
     echo "Cloning Corromics from GitHub..."
-    git clone https://github.com/abzer005/Corromics.git "$HOME/Corromics"
+    git clone https://github.com/Functional-Metabolomics-Lab/Corromics.git "$HOME/Corromics"
 else
     echo "Corromics folder already exists. Skipping clone."
 fi
