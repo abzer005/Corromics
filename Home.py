@@ -46,12 +46,12 @@ The metadata table is **critical** for linking metabolomics and other omics.
             
 **Required columns:**
 - `filename`  
-- Filenames of the metabolomics feature table (e.g. `sample1.mzML`).  
-- These must match the sample names used in the metabolomics table  
-    (or their basenames, e.g. `spiked_1` ↔ `spiked_1.mzML`).
+    - Filenames of the metabolomics feature table, should have the extensions as well (e.g. `sample1.mzML`).  
+    - These must match the sample names used in the metabolomics table  
+        (or their basenames, e.g. `spiked_1`, `spiked_1.mzML`).
 - `ATTRIBUTE_Corromics_filename`  
-- Filenames used for the other omics quantification (e.g. FASTA/ASV/proteomics IDs).  
-- Used to map between metabolomics samples and corresponding other omics sample
+    - Filenames used for the other omics quantification (e.g. FASTA/ASV/proteomics IDs).  
+    - Used to map between metabolomics samples and corresponding other omics sample
 
 The app internally uses:
 - `filename` as the **metadata index** (for matching to metabolomics), and  
@@ -95,7 +95,7 @@ You can provide the metabolomics table via:
   - Expects features in **rows** and samples in **columns**.  
   - Your table **must** contain a column named `feature_ID`.  
   - `feature_ID` will be used as the row index in the app.  
-  - Make sure the filename extensions match with those in the metadata.  
+  - Make sure the filename extensions (eg. mzML) match with those in the metadata.  
 
   Example (manual input):  
 
@@ -105,7 +105,7 @@ You can provide the metabolomics table via:
   |2|2000|2200|200|
 
 - **FBMN-Stats Output (Metabolomics Table)**  
-  - Upload the feature table exported from **FBMN-Stats**.  
+  - Upload the feature table exported from **FBMN-Stats** as it is.  
   - Expected format: **samples as rows**, **features as columns**.  
   - The first (unnamed) column is treated as sample IDs.  
   - The app automatically detects feature columns (e.g., `ID_mz_RT` or `ID_mz_RT&name`),  

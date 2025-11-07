@@ -9,7 +9,7 @@ Corromics is a web-based application designed to uncover correlation patterns be
 Running Corromics in the [cloud](https://corromics.gnps2.org/) has a built-in safeguard: a **limit of 1 million correlations** to prevent crashes. For larger datasets, we **strongly recommend installing and running Corromics locally**, allowing faster performance and access to more computing power directly on your machine.
 
 
-## 🖥️ 1. Windows Users
+## 1. Windows Users
 
 You can directly download the **Windows executable (.exe)** from our lab's website:
 
@@ -20,72 +20,26 @@ You can directly download the **Windows executable (.exe)** from our lab's websi
 
 ---
 
-## 🍎 2. macOS Users
+## 2. macOS Users
 
-Due to macOS security restrictions, we do **not** provide a pre-built app.  
-However, Mac users can easily **build and run Corromics** locally using a simple shell script.
+We don't have a standalone desktop app for macOS. If your analysis involves fewer than 1 million correlations, you can safely use the hosted web version of the app.
 
-### What the Shell Script Does:
+Run Locally (Recommended for Larger Datasets)
+For heavy analyses or larger datasets, it’s best to run Corromics locally:
 
-- Checks for **Python** and **Git** (installs via Homebrew if missing)
-- Installs **Homebrew** if needed
-- Creates a **Conda virtual environment** (`corromics_env`) and activates it
-- Installs all required Python dependencies
-- Clones the **Corromics GitHub repository**
-- Launches the app at `http://localhost:8502`
+- Clone the repository
+````
+git clone https://github.com/Functional-Metabolomics-Lab/Corromics.git
+cd Corromics
+````
+ - Install dependencies and launch the app. Make sure you have Python 3.11 installed (same version used in the Windows .exe build).
+```
+pip install -r requirements.txt
+streamlit run Home.py
+```
+Running locally avoids browser memory limits and gives full control over computation.
 
 ---
-
-## Installation Steps for Mac
-
-### ✅ Step 1: Open Terminal and Run the Script
-
-Execute each of the following commands one after the other in the terminal.
-
-```bash
-
-# Get the Installation Script
-wget https://raw.githubusercontent.com/abzer005/Corromics/main/install_corromics.sh -O install_corromics.sh
-
-# Make the script executable
-chmod +x install_corromics.sh
-
-# Run the installer script
-./install_corromics.sh
-
-```
-
-### ✅  Step 2: Launching the App
-Once installation is complete, you will see the following message in your terminal:
-
-```
-"browser.browserName" is not a valid config option. If you previously had this config option set, it may have been removed.
-  
-You can now view your Streamlit app in your browser.
-  
-URL: http://localhost:8502
-
-```
-
-The app should open automatically in your default web browser. If it doesn’t, manually paste http://localhost:8502 into your browser.
-
----
-
-## Running Corromics After Installation
-Once installed, you don’t need to run the script again. To start Corromics in the future:
-
-Open Terminal and enter the following commands step by step:
-
-```bash
-cd ~/Corromics 
-source corromics_env/bin/activate 
-streamlit run Home.py --server.port 8502 --server.address localhost
-```
-
-- Navigate to Corromics directory
-- Activate the virtual environment
-- Launch the app
-
 
 ## Closing the App
 To stop Corromics, press **Ctrl + C** in the terminal.
