@@ -257,9 +257,11 @@ def build_association_heatmap(
 
     fig = go.Figure(data=go.Heatmap(**heatmap_kwargs))
     if mode in ["Selected feature IDs", "CorrOmics example standards"]:
-        text_values = heatmap_df.applymap(
-            lambda value: "" if pd.isna(value) else f"{value:.2f}"
-        ).values
+        text_values = heatmap_df.apply(
+            lambda column: column.map(
+                lambda value: "" if pd.isna(value) else f"{value:.2f}"
+            )
+        ).to_numpy()
         fig.add_trace(
             go.Scatter(
                 x=[
