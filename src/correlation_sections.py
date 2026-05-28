@@ -76,15 +76,16 @@ def association_heatmap_section(target_scores, method):
             )
 
     with heatmap_col2:
-        heatmap_max_cols = st.slider(
-            "Maximum variable columns",
-            min_value=5,
-            max_value=50,
-            value=30,
-            step=5,
-            key="heatmap_max_cols",
-            help="Variables are ranked by their strongest absolute Estimate among the plotted features.",
-        )
+        if heatmap_mode != "CorrOmics example standards":
+            heatmap_max_cols = st.slider(
+                "Maximum variable columns",
+                min_value=5,
+                max_value=50,
+                value=30,
+                step=5,
+                key="heatmap_max_cols",
+                help="Variables are ranked by their strongest absolute Estimate among the plotted features.",
+            )
         heatmap_label_mode = st.radio(
             "Feature row labels",
             ["Split by separator", "Original index"],
