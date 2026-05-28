@@ -31,6 +31,7 @@ def association_heatmap_section(target_scores, method):
     selected_heatmap_variables = None
     heatmap_top_n = 50
     heatmap_max_rows = 30
+    heatmap_max_cols = 30
     heatmap_label_mode = "Split by separator"
     heatmap_label_separator = "_"
     heatmap_label_part_index = 0
