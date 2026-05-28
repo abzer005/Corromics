@@ -50,10 +50,7 @@ def page_setup():
         clear_cache_button()
         v_space(1)
         
-        st.image(
-            "https://raw.githubusercontent.com/abzer005/Corromics/main/assets/corromics_full_logo.png",
-            use_container_width=True,
-        )
+        st.image("assets/corromics_full_logo.png", use_container_width=True)
 
 dataframe_names = ("md",
                    "ft",
