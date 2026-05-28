@@ -3,6 +3,7 @@ from src.fileselection import *
 from src.correlation import *
 from src.fdr import *
 from src.molnet import *
+from src.progress import *
 from streamlit_extras.stylable_container import stylable_container
 import random
 import time
@@ -175,14 +176,49 @@ def correlation_section():
         
         else:
             st.session_state["processing"] = True  # Set processing flag
+            method_label = "Pearson" if method == "pearson" else "Spearman"
+            status_text = st.empty()
+            progress_bar = st.progress(0.0)
+            target_progress_cb = make_done_total_progress_callback(
+                status_text,
+                progress_bar,
+                0.0,
+                0.5,
+                f"Running {method_label} correlation on target",
+            )
+            decoy_progress_cb = make_done_total_progress_callback(
+                status_text,
+                progress_bar,
+                0.5,
+                1.0,
+                f"Running {method_label} correlation on decoy",
+            )
 
             with st.spinner("Calculating correlations..."):
                 st.session_state['target_results'] = calculate_correlations_parallel(
-                    st.session_state['target_dataframe'], st.session_state['metabolome_ft'], st.session_state['target_omics']
+                    st.session_state['target_dataframe'],
+                    st.session_state['metabolome_ft'],
+                    st.session_state['target_omics'],
+                    progress_callback=target_progress_cb,
                 )
+                progress_bar.progress(0.5)
+                status_text.info(f"Target {method_label} correlation completed. Starting decoy...")
+
                 st.session_state['decoy_results'] = calculate_correlations_parallel(
-                    st.session_state['decoy_dataframe'], st.session_state['metabolome_ft'], st.session_state['decoy_omics']
-                )    
+                    st.session_state['decoy_dataframe'],
+                    st.session_state['metabolome_ft'],
+                    st.session_state['decoy_omics'],
+                    progress_callback=decoy_progress_cb,
+                )
+                update_method_progress(
+                    status_text,
+                    progress_bar,
+                    f"Running {method_label} correlation on decoy",
+                    1.0,
+                    0,
+                    0.5,
+                    1.0,
+                )
             st.session_state['processing'] = False
             st.success("✅ Correlation analysis completed!")
 

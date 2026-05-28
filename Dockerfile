@@ -11,8 +11,10 @@ ENV PATH=$CONDA_DIR/bin:$PATH
 # Adding to bashrc
 RUN echo "export PATH=$CONDA_DIR:$PATH" >> ~/.bashrc
 
-COPY requirements.txt .
+COPY requirements.txt environment-gemelli-worker.yml ./
 RUN pip install -r requirements.txt
+RUN conda env create -f environment-gemelli-worker.yml && conda clean -afy
+ENV GEMELLI_WORKER_PYTHON=/opt/conda/envs/gemelli-standalone/bin/python
 RUN pip install git+https://github.com/Wang-Bioinformatics-Lab/GNPSDataPackage.git
 
 COPY . /app

@@ -39,6 +39,20 @@ def load_example():
     st.session_state['md'] = open_df("example-data/metadata_example.csv").set_index("filename")
     st.session_state['ft'] = open_df("example-data/Normalised_Quant_table.csv").set_index("feature_ID")
     st.session_state['omics_ft'] = open_df("example-data/asv_16s_table_with_taxonomic_levels.csv").set_index("feature_ID")
+    st.session_state["input_dataset"] = "example"
+
+def load_corromics_example():
+    """
+    Load example datasets into Streamlit's session state.
+    """
+    # Reset session state data
+    for key in ['md','ft', 'omics_ft']:
+        st.session_state[key] = None
+        
+    st.session_state['md'] = open_df("example-data/20260304_Corromics_metadata.csv").set_index("filename")
+    st.session_state['ft'] = open_df("example-data/20260304_Corromics_webapp_ft_input.csv").set_index("feature_ID")
+    st.session_state['omics_ft'] = open_df("example-data/20260304_Corromics_webapp_otu_input.csv").set_index("feature_ID")
+    st.session_state["input_dataset"] = "corromics_manuscript_example"
 
 @st.cache_data
 def load_md(md_file):
@@ -49,7 +63,6 @@ def load_md(md_file):
     """
     md = open_df(md_file).set_index("filename")
     return md
-    
 
 @st.cache_data
 def load_ft(ft_file):
@@ -316,32 +329,100 @@ def show_input_tables_in_tabs():
                 st.info(f"{label} not loaded yet.")
 
 ##### Cleanup functions
+MS_EXTENSIONS = r"\.mzml|\.mzxml|\.mzdata|\.raw|\.cdf|\.wiff|\.d"
+
+def canon_name(x: str) -> str:
+    if x is None:
+        return ""
+    x = str(x).strip()
+
+    # remove common suffixes & extensions
+    x = re.sub(MS_EXTENSIONS, "", x, flags=re.IGNORECASE)
+    x = x.replace(" Peak area", "")
+
+    # normalize whitespace and separators
+    x = re.sub(r"\s+", "_", x)          # spaces/tabs -> underscore
+    x = re.sub(r"_+", "_", x)           # collapse multiple underscores
+    x = x.strip("_").lower()            # consistent casing
+
+    return x
+
+# @st.cache_data
+# def clean_up_md(md):
+#     md = md.copy()
+
+#      # Remove rows that have NA values in ATTRIBUTE_Corromics_filenam
+#     md = md.dropna(subset=['ATTRIBUTE_Corromics_filename'])
+
+#      # Remove rows where all values are NA
+#     md = md.dropna(how="all")
+#     md.index = [name.strip() for name in md.index]
+
+#     # for each col in md
+#     # 1) removing the spaces (if any)
+#     # 2) replace the spaces (in the middle) to underscore
+#     # 3) converting them all to LOWERCASE
+#     for col in md.columns:
+#         md[col] = md[col].apply(lambda x: x.strip().replace(" ", "_").lower() if isinstance(x, str) else x)
+
+#     md.index = [
+#         re.sub(MS_EXTENSIONS, "", i, flags=re.IGNORECASE).replace(" Peak area", "")
+#         for i in md.index
+#     ]
+    
+#     return md
 
 @st.cache_data
 def clean_up_md(md):
     md = md.copy()
 
-     # Remove rows that have NA values in ATTRIBUTE_Corromics_filenam
+    # Remove rows with missing filenames
     md = md.dropna(subset=['ATTRIBUTE_Corromics_filename'])
 
-     # Remove rows where all values are NA
+    # Remove rows where all values are NA
     md = md.dropna(how="all")
-    md.index = [name.strip() for name in md.index]
 
-    # for each col in md
-    # 1) removing the spaces (if any)
-    # 2) replace the spaces (in the middle) to underscore
-    # 3) converting them all to UPPERCASE
+    # Normalize metadata filename column
+    md["ATTRIBUTE_Corromics_filename"] = md["ATTRIBUTE_Corromics_filename"].map(canon_name)
+
+    # Normalize metadata index as well
+    md.index = [canon_name(i) for i in md.index]
+
+    # Clean string columns (spaces → underscores, lowercase)
     for col in md.columns:
-        if md[col].dtype == str:
-            md[col] = [item.strip().replace(" ", "_").upper() for item in md[col]]
+        if md[col].dtype == "object":
+            md[col] = md[col].map(
+                lambda x: re.sub(r"\s+", "_", x.strip()).lower() if isinstance(x, str) else x
+            )
 
-    md.index = [
-        re.sub(r"\.mzxml|\.mzml", "", i, flags=re.IGNORECASE).replace(" Peak area", "")
-        for i in md.index
-    ]
-    
     return md
+
+
+@st.cache_data
+# def clean_up_ft(ft):
+#     ft = ft.copy()
+#     ft = ft.dropna(how="all")
+
+#     # drop all columns that are not mzML or mzXML file names
+#     ft.drop(
+#         columns=[col for col in ft.columns if not re.search(r"\.mzml|\.mzxml", 
+#                                                             col, 
+#                                                             flags=re.IGNORECASE)],
+#         inplace=True,
+#     )
+
+#     # remove " Peak area" from column names, contained after mzmine pre-processing
+#     ft.rename(
+#         columns={
+#             col: re.sub(r"\.mzxml|\.mzml", "", col, flags=re.IGNORECASE)
+#                  .replace(" Peak area", "")
+#                  .strip()
+#             for col in ft.columns
+#         },
+#         inplace=True,
+#     )
+
+#     return ft
 
 
 @st.cache_data
@@ -349,24 +430,15 @@ def clean_up_ft(ft):
     ft = ft.copy()
     ft = ft.dropna(how="all")
 
-    # drop all columns that are not mzML or mzXML file names
-    ft.drop(
-        columns=[col for col in ft.columns if not re.search(r"\.mzml|\.mzxml", 
-                                                            col, 
-                                                            flags=re.IGNORECASE)],
-        inplace=True,
-    )
+    # filter columns by extension ONLY if at least one such column exists
+    has_ext = any(re.search(MS_EXTENSIONS, c, flags=re.IGNORECASE) for c in ft.columns)
+    if has_ext:
+        ft = ft[[c for c in ft.columns if re.search(MS_EXTENSIONS, c, flags=re.IGNORECASE)]]
 
-    # remove " Peak area" from column names, contained after mzmine pre-processing
     ft.rename(
-        columns={
-            col: re.sub(r"\.mzxml|\.mzml", "", col, flags=re.IGNORECASE)
-                 .replace(" Peak area", "")
-                 .strip()
-            for col in ft.columns
-        },
-        inplace=True,
-    )
+    columns=lambda c: c if c == "feature_ID" else canon_name(c),
+    inplace=True
+)
 
     return ft
 
@@ -374,22 +446,16 @@ def clean_up_ft(ft):
 def clean_up_omics_md(md):
     md = md.copy()
     md = md.dropna(how="all")
-    md.index = [name.strip() for name in md.index]
-    # for each col in md
-    # 1) removing the spaces (if any)
-    # 2) replace the spaces (in the middle) to underscore
-    # 3) converting them all to UPPERCASE
-    for col in md.columns:
-        if md[col].dtype == str:
-            md[col] = [item.strip().replace(" ", "_").upper() for item in md[col]]
+    md.index = [canon_name(i) for i in md.index]
 
-    md.index = [
-        re.sub(r"\.mzxml|\.mzml", "", i, flags=re.IGNORECASE).replace(" Peak area", "")
-        for i in md.index
-    ]
+    # Clean string columns (spaces → underscores, lowercase)
+    for col in md.columns:
+        if md[col].dtype == "object":
+            md[col] = md[col].map(
+                lambda x: re.sub(r"\s+", "_", x.strip()).lower() if isinstance(x, str) else x
+            )
 
     return md
-
 
 @st.cache_data
 def clean_up_omics_ft(ft):
@@ -615,7 +681,8 @@ def filter_by_overall_sum(df, exclude_cols=None, label_prefix=""):
             "**Filter out data with reads/intensities below the user input. Press Enter to apply.**", 
             min_value=0.0, 
             value=0.0, 
-            step=1.0,
+            step=1e-8,
+            format="%.2e",
             help="**All variables with a total read/intensity below this threshold will be removed from analysis.**",
             key=f"{label_prefix}filter_below"
         )
@@ -625,7 +692,7 @@ def filter_by_overall_sum(df, exclude_cols=None, label_prefix=""):
             "**Filter out data with reads/intensities above this value. Press Enter to apply.**", 
             max_value=float(max_overall_sum),
             value=float(max_overall_sum),
-            step=1.0,
+            step=0.01,
             help="**All variables with a total read/intensity ABOVE this threshold will be removed from analysis.**",
             key=f"{label_prefix}filter_above"
         )
@@ -638,4 +705,58 @@ def filter_by_overall_sum(df, exclude_cols=None, label_prefix=""):
     return filtered_df, exclude_cols
 
 
+def filter_by_variance(df, exclude_cols=None, label_prefix=""):
+    """
+    Adds UI widgets to filter a DataFrame by 'Variance' column (LOW variance removal only).
 
+    Parameters:
+        df (DataFrame): Must contain a 'Variance' column.
+        exclude_cols (list): Columns to exclude from later transformations.
+        label_prefix (str): Optional label prefix to distinguish keys if reused.
+
+    Returns:
+        filtered_df (DataFrame)
+        exclude_cols (list)
+    """
+    if exclude_cols is None:
+        exclude_cols = ['index', 'Variance']
+
+    min_variance = float(df['Variance'].min())  
+    max_variance = float(df['Variance'].max())
+
+    # --- UI ---
+    col_min, col_max = st.columns([1, 1])
+
+    with col_min:
+        min_variance = st.number_input(
+            "**Minimum variance threshold**",
+            min_value=0.0,
+            value=min_variance,
+            step=1e-8,
+            format="%.2e",
+            help="Features with variance below this threshold will be removed.",
+            key=f"{label_prefix}variance_min"
+        )
+
+    with col_max:
+        max_variance = st.number_input(
+            "**Maximum variance threshold**",
+            max_value=max_variance,
+            value=max_variance,
+            step=0.01,
+            help="Features with variance above this threshold will be removed.",
+            key=f"{label_prefix}variance_max"
+        )
+
+    #with col_info:
+    #    st.caption(
+    #        "Low-variance features show little change across samples and may lead to unstable or spurious correlations."
+    #    )
+
+    # --- filtering ---
+    filtered_df = df[
+        (df["Variance"] >= min_variance) &
+        (df["Variance"] <= max_variance)
+    ]
+
+    return filtered_df, exclude_cols
