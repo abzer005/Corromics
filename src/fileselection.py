@@ -524,14 +524,20 @@ def inside_levels(df):
     result = []
 
     for col in df.columns:
-        # Convert all values to string (including NaN as 'NaN') for uniformity
+        # Convert all values to string for stable display and sorting across pandas versions.
         values = df[col].astype(str)
         
         # Create a dictionary of levels and counts (including NaN)
-        level_count_dict = values.value_counts(dropna=False).to_dict()
+        level_count_dict = {
+            str(level): count
+            for level, count in values.value_counts(dropna=False).to_dict().items()
+        }
 
-        # Sort levels alphabetically/numerically, keeping 'NaN' visible
-        sorted_levels = sorted(level_count_dict.keys(), key=lambda x: (x != "nan", x))
+        # Sort levels alphabetically, keeping missing values visible first.
+        sorted_levels = sorted(
+            level_count_dict.keys(),
+            key=lambda x: (str(x).lower() != "nan", str(x).lower()),
+        )
 
         # Extract counts corresponding to the sorted levels
         sorted_counts = [level_count_dict[level] for level in sorted_levels]
