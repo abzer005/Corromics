@@ -17,6 +17,7 @@ input_method = st.selectbox(
     "Select Input Method", 
     [
         "Use Example Dataset",
+        "Example Dataset – CorrOmics Manuscript",
         "Manual Input (Custom Data)",
         "FBMN-Stats Output (Metabolomics Table)",
         "MZmine Export (Metabolomics Table)",
@@ -33,7 +34,7 @@ for key in ['md', 'ft', 'omics_ft', 'last_input_method']:
 # --- Detect change in input method ---
 if st.session_state.get('last_input_method') != input_method:
     # Clear all previous dataframes
-    for key in ['md', 'ft', 'omics_ft']:
+    for key in ['md', 'ft', 'omics_ft', 'input_dataset']:
         st.session_state[key] = None
 
     # Update the tracker
@@ -52,7 +53,16 @@ if input_method == "Use Example Dataset":
         load_example()  # should fill md, ft, omics_ft
 
     show_input_tables_in_tabs()
-    #st.stop()  # don't show uploaders below in this mode
+
+elif input_method == "Example Dataset – CorrOmics Manuscript":
+    if (
+        st.session_state['md'] is None
+        and st.session_state['ft'] is None
+        and st.session_state['omics_ft'] is None
+    ):
+        load_corromics_example()  # should fill md, ft, omics_ft
+
+    show_input_tables_in_tabs()
 
 # ==========================
 # All other input methods
@@ -152,6 +162,31 @@ else:
 
     show_input_tables_in_tabs()
 
+with st.expander("🎯 **Why is feature prioritization important before correlation analysis?**", expanded=True):
+    st.info(
+        f"""
+    **Correlation analysis works best with a focused and meaningful feature set.**  
+    Using 1000s of metabolite features without prior filtering can introduce noise, increase computational time, 
+    and make results harder to interpret.
+
+    **Before proceeding, consider the following:**
+     - Remove blank/background features  
+     - Remove all-zero features  
+     - Remove features with constant or very low variance across samples (often not informative features). This can be done in the next page as well.  
+     - Prioritize biologically relevant or treatment-associated features. For upstream feature prioritization, you may use the [FBMN-STATS guide](https://fbmn-statsguide.gnps2.org/)
+
+    💡 Common feature prioritization strategies used in the field:
+     - **Statistical (univariate):** e.g., t-test, ANOVA to identify significantly changing features  
+     - **Unsupervised approaches:** e.g., PCA/PCoA to identify features driving sample separation  
+     - **Supervised methods:** e.g., PLS-DA or RF models to rank important features  
+     - **Network-based selection:** e.g., using FBMN to focus on connected molecular families rather than isolated features  
+     - **Annotation-driven:** prioritizing library-matched or structurally informative metabolites  
+     - **Class-based prioritization:** focusing on specific chemical classes (e.g., lipids, alkaloids, peptides) using tools like SIRIUS/ClassyFire  
+    """
+    )
+
+
+## =================Data Filtering==========================================
 st.markdown("## Data Filter")
 # Check if the data is available in the session state
 if (
@@ -165,7 +200,7 @@ if (
 
     ft = st.session_state['ft'].copy()
     md = st.session_state['md'].copy()
-    
+
     # If data is available, proceed with cleanup and checks
     cleaned_ft = clean_up_ft(ft)
     cleaned_md = clean_up_md(md)
@@ -233,7 +268,7 @@ if (
     st.session_state['metabolome_md'] = final_md
     
 st.markdown("---")
-st.markdown("#### Filter the Other Omics Data")
+st.markdown("### Filter the Other Omics Data")
 
 #------------------------------------------------------------------------------        
 #### Filter for the other omics Data
@@ -254,9 +289,14 @@ if (
 
     # Create mapping from 'Corromics_filename' to 'filename'
     metadata = omics_md[['ATTRIBUTE_Corromics_filename']].dropna()
+    metadata["ATTRIBUTE_Corromics_filename"] = metadata["ATTRIBUTE_Corromics_filename"].map(canon_name)
+    metadata.index = [canon_name(i) for i in metadata.index]
+
     corromics_to_filename = dict(zip(metadata['ATTRIBUTE_Corromics_filename'], metadata.index))
 
     # Rename columns in omics_df using that mapping
+    omics_ft = omics_ft.copy()
+    omics_ft.rename(columns=lambda c: c if c.lower() == "feature_id" else canon_name(c), inplace=True)
     omics_ft_renamed = omics_ft.rename(columns=corromics_to_filename)
 
     # Find shared columns (i.e., samples with both data)
@@ -264,6 +304,7 @@ if (
 
     # Subset both DataFrames to only shared samples
     st.session_state['metabolome_ft'] = metabolome_ft[sorted(common_samples)]
+    st.session_state['metabolome_ft_unfiltered_for_correlation'] = st.session_state['metabolome_ft'].copy()
     omics_ft = omics_ft_renamed.copy()
 
     valid_sample_columns = set(common_samples)
@@ -329,6 +370,10 @@ if (
             f"The table is rearranged with the first **{len(taxonomic_order)}** columns based on the hierarchy selected by the user, "
             f"followed by **{len(sample_columns)}** sample columns. A total of **{rearranged_table.shape[0]}** unique features (rows) are included."  
             )
+        
+        # Show dimensions
+        arranged_table_rows, arranged_table_cols = st.session_state['rearranged_omics_table'].shape
+        st.caption(f"**Dimension:** {arranged_table_rows} rows × {arranged_table_cols} columns")
         st.dataframe(rearranged_table)
 
         #here last rows are full of None
@@ -369,13 +414,13 @@ if (
         omics_ft = omics_ft.dropna(axis=1, how='all')
         
         st.session_state['rearranged_omics_table'] = omics_ft
-        st.write(f"Dimensions of the omics table: {omics_ft.shape[0]} rows × {omics_ft.shape[1]} columns")
+        st.caption(f"**Dimension:** {omics_ft.shape[0]} rows × {omics_ft.shape[1]} columns")
         st.dataframe(omics_ft)
 
         st.info(
             "Once you're satisfied with how the (proteomics/genomics) table looks, you can proceed to the next step: **Correlation Analysis**.\n\n"
             "Since no hierarchical information was provided, a **one-to-one correlation** will be performed directly between the metabolomics data and the above omics data.\n\n"
-            "Use the menu on the left to navigate to the next page."
+            "To continue to the next page, click on **Correlation Analysis** from the menu on the left."
         )
     else:
         # If the user hasn't selected any option yet, show a message

@@ -54,40 +54,6 @@ def calculate_single_asv(asv_index, metabolomics, asvs, method="pearson"):
     return result
 
 
-# def calculate_correlations_parallel(df, metabolome_ft, genome_ft, num_workers=4):
-#     """
-#     Faster correlation calculation using parallel processing.
-#     """
-#     method = st.session_state.get("method", "pearson") 
-
-#     transposed_df = df.T
-#     length_metabolome = metabolome_ft.shape[0]
-#     length_genome = genome_ft.shape[0]
-
-#     metabolome_names = metabolome_ft.index
-#     asv_names = genome_ft.index
-
-#     # Extract metabolomics and ASV columns
-#     metabolomics = transposed_df.iloc[:, :length_metabolome].values
-#     asvs = transposed_df.iloc[:, length_metabolome:length_metabolome + length_genome].values
-    
-#     # Use multiprocessing to calculate correlations in parallel
-#     with Pool(processes=num_workers) as pool:
-#         results = pool.starmap(calculate_single_asv, 
-#                                [(i, metabolomics, asvs, method) for i in range(asvs.shape[1])])
-        
-#     results_with_indices = {
-#         asv_names[i]: pd.DataFrame(
-#             results[i],
-#             index=metabolome_names,
-#             columns=["Estimate", "P-value", "BH-Corrected P-Value", "R2"]
-#         )
-#         for i in range(len(asv_names))
-#     }
-
-#     return results_with_indices
-
-
 def _single_asv_wrapper(args):
     """
     Wrapper so we get both index and result back from pool.imap_unordered.
@@ -95,6 +61,27 @@ def _single_asv_wrapper(args):
     i, metabolomics, asvs, method = args
     res = calculate_single_asv(i, metabolomics, asvs, method)
     return i, res
+
+def clear_processing():
+    st.session_state["processing"] = False
+    st.session_state["processing_method"] = None
+    clear_correlation_outputs()
+
+
+def clear_correlation_outputs():
+    for key in [
+        "target_results",
+        "decoy_results",
+        "Target_scores",
+        "Decoy_scores",
+        "filtered_target",
+        "filtered_target_csv",
+        "fig_histogram",
+        "fig_fdr",
+    ]:
+        st.session_state[key] = None
+
+    st.session_state["run_fdr_clicked"] = False
 
 def calculate_correlations_parallel(df, metabolome_ft, genome_ft, num_workers=4, progress_callback=None):
     """
@@ -198,7 +185,7 @@ def merge_asv_correlation_results(results, target_df, genome_ft):
     return merged_list
 
 
-def melt_correlation_results(results):
+def melt_correlation_results(results, method=None):
     """
     Melt a dictionary of correlation dataframes into a single dataframe.
 
@@ -211,16 +198,39 @@ def melt_correlation_results(results):
     """
     melted_results = []
 
+    if not results:
+        return pd.DataFrame(
+            columns=[
+                "Feature",
+                "Variable",
+                "Method",
+                "Estimate",
+                "P-value",
+                "BH-Corrected P-Value",
+                "R2",
+            ]
+        )
+
     for asv_name, df in results.items():
         # Add Feature and Variable columns
         df = df.copy()
         df["Feature"] = df.index  # Index as Feature
         df["Variable"] = asv_name  # ASV name as Variable
-        df["P-value"] = df["P-value"].apply(lambda x: f"{x:.2e}")
-        df["BH-Corrected P-Value"] = df["BH-Corrected P-Value"].apply(lambda x: f"{x:.2e}")
-
+        if method is not None:
+            df["Method"] = method
+        df["P-value"] = df["P-value"].apply(
+            lambda x: f"{x:.2e}" if pd.notnull(x) else np.nan
+            )
+        df["BH-Corrected P-Value"] = df["BH-Corrected P-Value"].apply(
+            lambda x: f"{x:.2e}" if pd.notnull(x) else np.nan
+            )
+        
         # Rearrange columns so Feature and Variable are first
-        df = df[["Feature", "Variable"] + list(df.columns[:-2])]  # Reorder columns
+        ordered_columns = ["Feature", "Variable"]
+        if "Method" in df.columns:
+            ordered_columns.append("Method")
+        ordered_columns += [col for col in df.columns if col not in ordered_columns]
+        df = df[ordered_columns]
 
         # Append to list
         melted_results.append(df)
@@ -230,10 +240,6 @@ def melt_correlation_results(results):
 
     return final_df
 
-
-import numpy as np
-import pandas as pd
-import streamlit as st
 
 def apply_transformation(df: pd.DataFrame, exclude_cols=None, key_prefix=""):
     """
@@ -248,7 +254,7 @@ def apply_transformation(df: pd.DataFrame, exclude_cols=None, key_prefix=""):
         exclude_cols = []
 
     method = st.radio(
-        "Select Transformation",
+        "Select Transformation for the second omics table",
         [
             "None",
             "Impute only (0s to 1)",
@@ -335,7 +341,11 @@ def apply_transformation(df: pd.DataFrame, exclude_cols=None, key_prefix=""):
 
 # Function to estimate the size of the DataFrame in MB
 def estimate_df_size(df):
-    return df.memory_usage(deep=True).sum() / (1024 * 1024)  # Convert to MB
+  
+    if isinstance(df, pd.DataFrame):
+        return df.memory_usage(deep=True).sum() / (1024 * 1024) # Convert to MB
+
+    return 0
 
 # Function to convert DataFrame to CSV
 @st.cache_data
@@ -367,22 +377,22 @@ def estimate_run_time(metabolome_df, genome_df):
 
     # Estimate time and adjust box color based on severity
     if correlations <= 50000:
-        message += "⏳ It will take around <b>30s</b> to complete the run."
+        message += "⏳ It might take around <b>30s</b> to complete the run."
         color = "#e6f7ff"  # Light blue
     elif correlations <= 100000:
-        message += "⏳ It will take around <b>1 min</b> to complete the run."
+        message += "⏳ It might take around <b>1 min</b> to complete the run."
         color = "#e6f7ff"
     elif correlations <= 500000:
-        message += "⏳ It will take around <b>2 mins</b> to complete the run."
+        message += "⏳ It might take around <b>2 mins</b> to complete the run."
         color = "#e6f7ff"
     elif correlations <= 1000000:
-        message += "⏳ It will take around <b>4 mins</b> to complete the run."
+        message += "⏳ It might take around <b>5 mins</b> to complete the run."
         color = "#fffbe6"  # Light yellow
     elif correlations <= 5000000:
-        message += "⏳ It will take around <b>12 mins</b> to complete the run. ☕ Go get a coffee!"
+        message += "⏳ It might take around <b>10-15 mins</b> to complete the run."
         color = "#fffbe6"
     elif correlations <= 10000000:
-        message += "⏳ It will take around <b>20 mins</b> to complete the run. ☕ Go get a coffee!"
+        message += "⏳ It might take around <b>20 mins</b> to complete the run."
         color = "#fffbe6"
     else:
         message += "⏳ The run time might exceed <b>20 mins</b>."
@@ -396,7 +406,7 @@ def estimate_run_time(metabolome_df, genome_df):
             border-radius: 10px; 
             text-align: center; 
             border: 1px solid #d9d9d9; 
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
         ">
             {message}
         </div>
@@ -406,6 +416,23 @@ def estimate_run_time(metabolome_df, genome_df):
     st.markdown(styled_message, unsafe_allow_html=True)
 
     return correlations
+
+
+def warn_large_correlation_run(correlations, metabolome_count, omics_count):
+    """
+    Warn users when the pairwise correlation job is likely to be slow or memory-heavy.
+    """
+    if correlations < 1_000_000:
+        return
+
+    st.warning(
+        "Large correlation run detected.\n\n"
+        f"- First omics features: **{metabolome_count:,}**\n"
+        f"- Second omics features: **{omics_count:,}**\n"
+        f"- Pairwise correlations: **{correlations:,}**\n\n"
+        "This run may take a long time and use substantial memory. "
+        "Consider applying the filters below before running Pearson/Spearman correlations."
+    )
 
 
 def centered_button(label, key="centered_button", disabled=False):
@@ -517,12 +544,52 @@ def display_correlation_message(original_edges, filtered_edges):
             padding: 20px; 
             border-radius: 10px; 
             text-align: center; 
-            border: 1px solid #d9d9d9; 
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+            border: 1px solid #7dd3fc;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
         ">
             {message}
         </div>
     """
 
     # Display the Styled Message in Streamlit
+    st.markdown(styled_message, unsafe_allow_html=True)
+
+
+def corromics_feature_filtering_info():
+    message = """
+    <b>💡 Why filter features?</b>
+
+    In this workflow, the first omics dataset (typically metabolomics) often contains a much 
+    larger number of features compared to the second dataset (e.g., microbiome). This can lead 
+    to a very large number of pairwise correlations, increasing runtime and noise.
+
+    Not all features are equally informative — many may be low-abundance, noisy, or show little 
+    variation across samples. Correlating all features can introduce random associations and 
+    make it harder to detect meaningful biological relationships.
+
+    Feature prioritization helps focus the analysis on relevant signals. You can filter features 
+    from the first omics dataset using our 
+    <a href="https://fbmn-statsguide.gnps2.org/" target="_blank">FBMN-STATS guide</a> to perform:<br>
+    
+    - Statistical tests (e.g., ANOVA, t-tests)<br>
+    - PCA or Random Forest prioritization<br>
+    - Simple intensity or variance-based filtering (provided here)
+
+    This step improves both performance and interpretability of downstream correlations.
+    """
+
+    styled_message = f"""
+    <div style="
+        background-color: #e0f2fe;
+        border: 1px solid #d9d9d9;
+        padding: 20px; 
+        border-radius: 10px; 
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
+        line-height: 1.6;
+        font-size: 16px;
+    ">
+        {message}
+    </div>
+    """
+
     st.markdown(styled_message, unsafe_allow_html=True)

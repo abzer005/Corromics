@@ -13,6 +13,9 @@ venv/
 # Logs
 *.log
 
+# Generated network exports
+*.graphml
+
 # Compiled files
 *.pyc
 *.pyo

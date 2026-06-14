@@ -50,12 +50,7 @@ def page_setup():
         clear_cache_button()
         v_space(1)
         
-        try:
-            st.image("https://raw.githubusercontent.com/abzer005/Corromics/main/assets/corromics_full_logo.png",
-                     use_container_width=True)
-        except TypeError:
-            st.image("https://raw.githubusercontent.com/abzer005/Corromics/main/assets/corromics_full_logo.png", 
-                     use_column_width=True)
+        st.image("assets/corromics_full_logo.png", use_container_width=True)
 
 dataframe_names = ("md",
                    "ft",
@@ -194,6 +189,8 @@ def initialize_app():
 
     # Try to read from Streamlit secrets
     environment_mode = st.secrets.get("ENVIRONMENT_MODE", None)
+    if environment_mode is None:
+        environment_mode = st.secrets.get("environment", {}).get("mode", None)
 
     # If not found, fallback to environment variable
     if environment_mode is None:

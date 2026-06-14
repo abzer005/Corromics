@@ -10,10 +10,7 @@ st.title('CORROMICS')
 
 c1, c2, c3 = st.columns([2, 2, 2])  # Adjust column ratios for centering
 with c2:
-    try:
-        st.image("assets/corromics_icon.png", caption="Corromics Logo", use_container_width=True)
-    except TypeError:
-        st.image("assets/corromics_icon.png", caption="Corromics Logo", use_column_width=True)
+    st.image("assets/corromics_icon.png", caption="Corromics Logo", use_container_width=True)
 
 # Introduction
 st.markdown("""
@@ -118,6 +115,102 @@ You can provide the metabolomics table via:
     the app automatically removes that suffix from column names for matching.
         """
     )
+
+st.subheader("Available Association Methods")
+st.markdown("""
+CorrOmics currently supports four association methods. Choose the method based on your data type and the question you want to ask.
+""")
+
+with st.expander("📈 Pearson correlation", expanded=False):
+    st.markdown("""
+Pearson correlation measures **linear relationships** between two features across matched samples.
+
+**Example:** if a metabolite consistently increases when a microbial taxon or protein also increases, Pearson may return a positive correlation estimate. If one increases while the other decreases, the estimate will be negative.
+
+**CorrOmics output for Pearson**
+- `Estimate`: Pearson correlation coefficient, ranging from `-1` to `+1`
+- `P-value`: nominal significance of the correlation
+- `BH-Corrected P-Value`: multiple-testing adjusted p-value
+- `R2`: squared correlation coefficient, useful as a rough measure of association strength
+
+**Best used when**
+- values are continuous and approximately linear after preprocessing/transformation
+- extreme outliers have been removed or checked
+- the goal is to identify direct linear co-variation patterns
+
+**Caveats**
+- sensitive to outliers
+- can miss nonlinear relationships
+- can be misleading for compositional data, such as relative-abundance microbiome tables
+""")
+
+with st.expander("📊 Spearman correlation", expanded=False):
+    st.markdown("""
+Spearman correlation is a **rank-based** method. Instead of using the raw values directly, it compares the ordering of samples for each feature.
+
+**How it differs from Pearson:** Pearson asks whether two features change together in a linear way. Spearman asks whether one feature generally increases as the other increases, even if the relationship is not perfectly linear.
+
+**Example:** if high metabolite values usually occur in the same samples as high microbial/protein values, Spearman can detect that monotonic trend even when the raw relationship is curved.
+
+**CorrOmics output for Spearman**
+- `Estimate`: Spearman rank correlation coefficient, ranging from `-1` to `+1`
+- `P-value`: nominal significance of the rank association
+- `BH-Corrected P-Value`: multiple-testing adjusted p-value
+- `R2`: squared rank-correlation value, useful as a rough association-strength summary
+
+**Best used when**
+- data are not normally distributed
+- relationships may be monotonic but not linear
+- outliers may influence Pearson too strongly
+
+**Caveats**
+- still pairwise and correlation-based
+- does not prove causality
+- can still be affected by compositional constraints and strong batch effects
+""")
+
+with st.expander("🧭 Distance correlation", expanded=False):
+    st.markdown("""
+Detects both linear and nonlinear associations. Distance correlation scores are non-negative, so they indicate association strength rather than positive or negative direction.
+""")
+
+with st.expander("🧬 SparCC", expanded=False):
+    st.markdown("""
+SparCC estimates correlation scores for **compositional data**, such as microbiome count or relative-abundance tables. It is useful when standard correlations may be misleading because sample values are constrained by total sequencing depth or relative abundance.
+
+In CorrOmics, SparCC results should be treated as **exploratory association scores**. Calibrated SparCC p-values and target-decoy FDR filtering are not currently provided.
+
+**References**
+- Friedman J, Alm EJ. 2012. [*Inferring Correlation Networks from Genomic Survey Data*](https://doi.org/10.1371/journal.pcbi.1002687). PLOS Computational Biology.
+- [SparCC GitHub mirror](https://github.com/dlegor/SparCC)
+- [FastSpar GitHub](https://github.com/scwatts/fastspar)
+""")
+
+with st.expander("🧩 Joint-RPCA", expanded=False):
+    st.markdown("""
+Joint-RPCA is planned as an **exploratory multi-omics integration and feature-prioritization tool**, not as a replacement for Pearson/Spearman correlation analysis.
+
+Joint-RPCA jointly factorizes paired omics tables measured on the same samples after an rclr transformation. It helps summarize shared sample-level structure across datasets and identify features from different omics layers that contribute to the same sample-separation patterns.
+
+Unlike Pearson or Spearman, joint-RPCA does **not** calculate raw abundance correlations directly. Feature-feature scores from joint-RPCA reflect whether features have similar or opposite loading patterns in the learned low-dimensional space.
+
+**What users could interpret**
+- **positive scores**: features contribute in similar directions in the joint ordination space
+- **negative scores**: features contribute in opposite directions
+- **values near zero**: little shared structure in the reduced joint space
+- sample clustering or separation patterns shared across omics datasets
+- features that may be useful to prioritize before pairwise correlation analysis
+
+**Caveats**
+- joint-RPCA does not identify pairwise metabolite-microbe/protein associations by itself
+- joint-RPCA scores are loading-space associations, not raw co-abundance correlations
+- very small feature blocks may produce unstable or hard-to-interpret results
+- ordination patterns are exploratory and should not be treated as proof of causality
+
+**References**
+- Burcham Z.M. et al. 2024. [*A conserved interdomain microbial network underpins cadaver decomposition despite environmental variables*](https://www.nature.com/articles/s41564-023-01580-y). Nature Microbiology.
+- [Gemelli GitHub: joint robust Aitchison PCA and multi-omics factorization](https://github.com/biocore/gemelli)
+""")
 
 # Output Files
 st.subheader('Output File Information')
