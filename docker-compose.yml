@@ -12,6 +12,15 @@ services:
       - nginx-net
     restart: unless-stopped
     command: /app/run_server.sh
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 8000M
     environment:
       VIRTUAL_HOST: corromics.gnps2.org
       VIRTUAL_PORT: 5000
