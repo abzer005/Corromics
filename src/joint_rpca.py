@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -13,16 +14,24 @@ import pandas as pd
 JOINT_RPCA_METABOLOME_PREFIX = "metabolome__"
 JOINT_RPCA_OMICS_PREFIX = "omics__"
 GEMELLI_WORKER_ENV_NAME = "gemelli-standalone"
+WSL_WORKER_PREFIX = "wsl:"
+DEFAULT_WSL_DISTRO = "Ubuntu"
+DEFAULT_WSL_CORROMICS_HOME = ".corromics"
 
 
 def check_joint_rpca_dependencies():
     missing = []
     worker_python = get_gemelli_worker_python()
     if not worker_python:
-        missing.append(
+        message = (
             "Gemelli worker Python not found. Install gemelli in this environment, "
             f"create a conda env named {GEMELLI_WORKER_ENV_NAME}, or set GEMELLI_WORKER_PYTHON."
         )
+        if os.name == "nt":
+            message += " On Windows, run scripts\\setup_joint_rpca_wsl.bat to install the WSL worker."
+        missing.append(message)
+    elif worker_python.startswith(WSL_WORKER_PREFIX):
+        return missing
     elif not Path(worker_python).exists():
         missing.append(f"Gemelli worker Python not found: {worker_python}")
 
@@ -134,6 +143,101 @@ def _candidate_gemelli_worker_pythons(env_name=GEMELLI_WORKER_ENV_NAME):
             yield _python_from_env_prefix(Path(root) / env_name)
 
 
+def _wsl_executable():
+    return shutil.which("wsl.exe") or shutil.which("wsl")
+
+
+def _wsl_distro():
+    return os.environ.get("GEMELLI_WSL_DISTRO", DEFAULT_WSL_DISTRO)
+
+
+def _wsl_command(distro, *args):
+    return [_wsl_executable(), "-d", distro, "--", *args]
+
+
+def _wsl_home(distro):
+    completed = subprocess.run(
+        _wsl_command(distro, "bash", "-lc", 'printf "%s" "$HOME"'),
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=10,
+    )
+    if completed.returncode != 0:
+        return None
+    return completed.stdout.strip()
+
+
+def _default_wsl_worker_python(distro):
+    home = _wsl_home(distro)
+    if not home:
+        return None
+    return (
+        f"{home}/{DEFAULT_WSL_CORROMICS_HOME}/miniforge/envs/"
+        f"{GEMELLI_WORKER_ENV_NAME}/bin/python"
+    )
+
+
+def _wsl_worker_python():
+    return os.environ.get("GEMELLI_WSL_WORKER_PYTHON")
+
+
+def _wsl_worker_spec(distro, worker_python):
+    return f"{WSL_WORKER_PREFIX}{distro}:{worker_python}"
+
+
+def _parse_wsl_worker_spec(worker_spec):
+    if not worker_spec.startswith(WSL_WORKER_PREFIX):
+        return None
+    value = worker_spec[len(WSL_WORKER_PREFIX):]
+    distro, worker_python = value.split(":", 1)
+    return distro, worker_python
+
+
+def _windows_path_to_wsl(path, distro):
+    completed = subprocess.run(
+        _wsl_command(distro, "wslpath", "-a", str(path)),
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=10,
+    )
+    if completed.returncode != 0:
+        message = completed.stderr.strip() or completed.stdout.strip()
+        raise RuntimeError(f"Failed to convert Windows path for WSL: {path}. {message}")
+    return completed.stdout.strip()
+
+
+def get_wsl_gemelli_worker_python():
+    if os.name != "nt" or not _wsl_executable():
+        return None
+
+    distro = _wsl_distro()
+    worker_python = _wsl_worker_python() or _default_wsl_worker_python(distro)
+    if not worker_python:
+        return None
+
+    test_command = (
+        f"test -x {shlex.quote(worker_python)} && "
+        f"{shlex.quote(worker_python)} -c "
+        f"{shlex.quote('import gemelli, biom; from gemelli.rpca import joint_rpca; print(\"ok\")')}"
+    )
+    try:
+        completed = subprocess.run(
+            _wsl_command(distro, "bash", "-lc", test_command),
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=20,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+    if completed.returncode == 0:
+        return _wsl_worker_spec(distro, worker_python)
+    return None
+
+
 def get_gemelli_worker_python():
     configured_python = os.environ.get("GEMELLI_WORKER_PYTHON")
     if configured_python:
@@ -146,7 +250,64 @@ def get_gemelli_worker_python():
         if worker_python.exists():
             return str(worker_python)
 
+    wsl_worker_python = get_wsl_gemelli_worker_python()
+    if wsl_worker_python:
+        return wsl_worker_python
+
     return None
+
+
+def _build_joint_rpca_worker_command(
+    worker_python,
+    worker_script,
+    metabolome_path,
+    omics_path,
+    output_dir,
+    max_iterations,
+    min_feature_frequency,
+):
+    wsl_worker = _parse_wsl_worker_spec(worker_python)
+    if wsl_worker:
+        distro, wsl_python = wsl_worker
+        worker_script = _windows_path_to_wsl(worker_script, distro)
+        metabolome_path = _windows_path_to_wsl(metabolome_path, distro)
+        omics_path = _windows_path_to_wsl(omics_path, distro)
+        output_dir = _windows_path_to_wsl(output_dir, distro)
+        worker_args = [
+            wsl_python,
+            worker_script,
+            "--metabolome",
+            metabolome_path,
+            "--omics",
+            omics_path,
+            "--output-dir",
+            output_dir,
+            "--max-iterations",
+            str(max_iterations),
+            "--min-feature-frequency",
+            str(min_feature_frequency),
+        ]
+        return _wsl_command(
+            distro,
+            "bash",
+            "-lc",
+            " ".join(shlex.quote(arg) for arg in worker_args),
+        )
+
+    return [
+        worker_python,
+        str(worker_script),
+        "--metabolome",
+        str(metabolome_path),
+        "--omics",
+        str(omics_path),
+        "--output-dir",
+        str(output_dir),
+        "--max-iterations",
+        str(max_iterations),
+        "--min-feature-frequency",
+        str(min_feature_frequency),
+    ]
 
 
 def _run_joint_rpca_worker(
@@ -171,20 +332,15 @@ def _run_joint_rpca_worker(
         metabolome_for_rpca.to_csv(metabolome_path, sep="\t")
         omics_for_rpca.to_csv(omics_path, sep="\t")
 
-        command = [
-            worker_python,
-            str(worker_script),
-            "--metabolome",
-            str(metabolome_path),
-            "--omics",
-            str(omics_path),
-            "--output-dir",
-            str(output_dir),
-            "--max-iterations",
-            str(max_iterations),
-            "--min-feature-frequency",
-            str(min_feature_frequency),
-        ]
+        command = _build_joint_rpca_worker_command(
+            worker_python=worker_python,
+            worker_script=worker_script,
+            metabolome_path=metabolome_path,
+            omics_path=omics_path,
+            output_dir=output_dir,
+            max_iterations=max_iterations,
+            min_feature_frequency=min_feature_frequency,
+        )
         completed = subprocess.run(
             command,
             text=True,

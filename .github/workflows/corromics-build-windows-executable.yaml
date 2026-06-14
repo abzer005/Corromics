@@ -64,9 +64,12 @@ jobs:
         cp -r pages streamlit_exe
         cp -r assets streamlit_exe
         cp -r example-data streamlit_exe
+        cp -r scripts streamlit_exe
         cp -r .streamlit streamlit_exe
         cp Home.py streamlit_exe
         cp ${{ env.APP_NAME }}.bat streamlit_exe
+        echo '@echo off' > streamlit_exe/Setup-Joint-RPCA-WSL.bat
+        echo 'call "%~dp0scripts\setup_joint_rpca_wsl.bat"' >> streamlit_exe/Setup-Joint-RPCA-WSL.bat
 
     - name: Generate Readme.txt
       shell: bash
@@ -83,6 +86,11 @@ jobs:
           Example:
             [server]
             port = 8502
+        - Joint-RPCA requires a Linux Gemelli worker through WSL because the iow dependency is not available
+          as a native Windows conda package. To set it up, double-click:
+            scripts\setup_joint_rpca_wsl.bat
+          Windows may ask for administrator approval to install WSL/Ubuntu, and Ubuntu may ask you to create
+          a Linux username/password on first launch.
 
         Thank you for using ${{ env.APP_NAME }}!
         EOF

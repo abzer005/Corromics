@@ -6,11 +6,13 @@ dependencies:
   - python=3.10
   - numpy<2
   - scikit-bio=0.5.9
-  - iow=1.0.8
+  - iow<1.0.8
   - biom-format
   - pandas
   - scipy
   - scikit-learn
   - h5py
   - click
-  - gemelli
+  - pip
+  - pip:
+      - gemelli==0.0.12
