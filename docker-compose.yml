@@ -5,6 +5,8 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: corromics-streamlit
+    ports:
+      - "5000:5000"
     volumes:
       - ./logs:/app/logs:rw
     restart: unless-stopped
