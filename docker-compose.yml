@@ -5,10 +5,11 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: corromics-streamlit
-    ports:
-      - "5000:5000"
     volumes:
       - ./logs:/app/logs:rw
+    networks:
+      - default
+      - nginx-net
     restart: unless-stopped
     command: /app/run_server.sh
     logging:
@@ -26,3 +27,8 @@ services:
       LETSENCRYPT_HOST: corromics.gnps2.org
       LETSENCRYPT_EMAIL: mwang87@gmail.com
       ENVIRONMENT_MODE: gnps
+
+networks:
+  nginx-net:
+    external:
+      name: nginx-net
