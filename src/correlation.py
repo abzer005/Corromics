@@ -5,8 +5,8 @@ import numpy as np
 from scipy.stats import pearsonr, spearmanr
 from statsmodels.stats.multitest import multipletests
 from multiprocessing import Pool
+
 import psutil
-import os
 import time
 
 def combine_dataframes(df1, df2):
