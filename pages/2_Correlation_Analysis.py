@@ -14,6 +14,9 @@ from streamlit_extras.stylable_container import stylable_container
 
 from src.fdr import *
 from src.molnet import *
+from src.sparcc import *
+from src.dist_correlation import *
+from src.joint_rpca import *
 
 page_setup()
 initialize_app()
@@ -553,8 +556,6 @@ if all(key in st.session_state for key in ['target_dataframe', 'decoy_dataframe'
 
     elif run_corr_clicked and method == "sparcc":
 
-        from src.sparcc import *
-
         st.session_state["processing"] = True
         st.session_state["processing_method"] = st.session_state["method"]
 
@@ -632,7 +633,6 @@ if all(key in st.session_state for key in ['target_dataframe', 'decoy_dataframe'
         st.session_state["processing"] = False
     
     elif run_corr_clicked and method == "distance_corr":
-        from src.dist_correlation import *
         st.session_state["processing"] = True
         st.session_state["processing_method"] = st.session_state["method"]
 
@@ -731,8 +731,6 @@ if all(key in st.session_state for key in ['target_dataframe', 'decoy_dataframe'
             st.error(f"Distance correlation failed: {e}")
 
     elif run_corr_clicked and method == "joint_rpca":
-
-        from src.joint_rpca import *
 
         st.session_state["processing"] = True
         st.session_state["processing_method"] = st.session_state["method"]
