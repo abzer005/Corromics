@@ -1,69 +1,100 @@
 import streamlit as st
 import numpy as np
+import random
+import time
+
 from src.common import *     
 from src.fileselection import *
 from src.correlation import *
-from src.sparcc import *
-from src.fdr import *
-from src.molnet import *
-from src.dist_correlation import *
-from src.joint_rpca import *
+
 from src.progress import *
 from src.visualization import *
 from src.correlation_sections import association_heatmap_section, false_discovery_rate_section
 from streamlit_extras.stylable_container import stylable_container
-import random
-import time
 
+from src.fdr import *
+from src.molnet import *
 
 page_setup()
 initialize_app()
+
 st.session_state['max_corr'] = get_max_correlation_limit()
 
 ##########################################################################
 
-st.markdown("## Hierarchical Binning (Second Omics Dataset)")
-
-if ('rearranged_omics_table' in st.session_state and not st.session_state['rearranged_omics_table'].empty):
-    omics_rearranged = st.session_state['rearranged_omics_table']
-
-    if (st.session_state.get("has_taxonomic_info") == "Yes"and st.session_state.get("taxonomic_order")):
-        taxa_order = st.session_state['taxonomic_order']
-
-        st.warning(
-            "⚠️ By default, the data is binned at the **highest available hierarchical level**."
-            " This occurs automatically when the page first loads. Please review the selected level below and change it if needed."
-            )
-
-        # Allow the user to select the taxonomic level from the available options
-        selected_level = st.selectbox("Select a taxonomic level to bin the data:", taxa_order)
-
-        # Perform binning based on the selected level
-        binned_by_level = bin_by_taxonomic_level(omics_rearranged, selected_level)
-    
-    elif (not st.session_state.get("taxonomic_order") or st.session_state.get("has_taxonomic_info") == "No"):
- 
-        st.warning("No taxonomic order available for binning. The index column was used as the binning level.")
-        # Drop rows and cols where all values are NaN
-        omics_numeric = omics_rearranged.select_dtypes(include='number')
-        selected_level = omics_numeric.index.name or "Index"
-
-        # Allow the user to select the taxonomic level from the available options
-        binned_by_level = bin_by_flat_id(omics_numeric)      
-    
+def render_dataframe_preview(df, label, key, preview_rows=10):
+    """Render a cheap preview by default; full tables can be large on Docker/GNPS."""
+    st.caption(f"{df.shape[0]:,} rows x {df.shape[1]:,} columns")
+    if st.checkbox("Show full table", key=f"{key}_show_full"):
+        st.dataframe(df, use_container_width=True)
     else:
-        st.warning("❗ Could not determine binning strategy. Please check your inputs.")
-        binned_by_level = None
-        selected_level = None
-   
-    if binned_by_level is not None:
-        with st.expander(f"Binned Data at Level: {selected_level}, Original Dimension: {binned_by_level.shape}"):
-            st.dataframe(binned_by_level)
-            st.info(
-                "👉 Scroll to the far right of the table to see the **Overall_sum** column. "
-                "This represents the total abundance or count for each row and can be used with the filter options below to refine your data."
-                )     
-    
+        st.dataframe(df.head(preview_rows), use_container_width=True)
+        if len(df) > preview_rows:
+            st.caption(f"Showing first {preview_rows:,} rows of {label}.")
+
+@st.fragment
+def hierarchical_binning_section():
+    st.markdown("## Hierarchical Binning (Second Omics Dataset)")
+
+    if ('rearranged_omics_table' in st.session_state and not st.session_state['rearranged_omics_table'].empty):
+        omics_rearranged = st.session_state['rearranged_omics_table']
+
+        if (st.session_state.get("has_taxonomic_info") == "Yes"and st.session_state.get("taxonomic_order")):
+            taxa_order = st.session_state['taxonomic_order']
+
+            st.warning(
+                "⚠️ By default, the data is binned at the **highest available hierarchical level**."
+                " This occurs automatically when the page first loads. Please review the selected level below and change it if needed."
+                )
+
+            # Allow the user to select the taxonomic level from the available options
+            selected_level = st.selectbox("Select a taxonomic level to bin the data:", taxa_order)
+
+            # Perform binning based on the selected level
+            binned_by_level = bin_by_taxonomic_level(omics_rearranged, selected_level)
+
+        elif (not st.session_state.get("taxonomic_order") or st.session_state.get("has_taxonomic_info") == "No"):
+
+            st.warning("No taxonomic order available for binning. The index column was used as the binning level.")
+            # Drop rows and cols where all values are NaN
+            omics_numeric = omics_rearranged.select_dtypes(include='number')
+            selected_level = omics_numeric.index.name or "Index"
+
+            # Allow the user to select the taxonomic level from the available options
+            binned_by_level = bin_by_flat_id(omics_numeric)
+
+        else:
+            st.warning("❗ Could not determine binning strategy. Please check your inputs.")
+            binned_by_level = None
+            selected_level = None
+
+        if binned_by_level is not None:
+            st.session_state['binned_by_level'] = binned_by_level
+            st.session_state['selected_binned_level'] = selected_level
+
+            with st.expander(f"Binned Data at Level: {selected_level}, Original Dimension: {binned_by_level.shape}"):
+                render_dataframe_preview(
+                    binned_by_level,
+                    "binned data",
+                    "binned_original",
+                )
+                st.info(
+                    "👉 Scroll to the far right of the table to see the **Overall_sum** column. "
+                    "This represents the total abundance or count for each row and can be used with the filter options below to refine your data."
+                    )
+
+    else:
+        st.warning("Please upload the data in the first page to continue the analysis here")
+
+
+@st.fragment
+def binned_transformation_section():
+    if 'binned_by_level' not in st.session_state:
+        return
+
+    binned_by_level = st.session_state['binned_by_level']
+    selected_level = st.session_state.get('selected_binned_level', 'Index')
+
     st.markdown('#### Filter Binned Data by intensity')
     st.info(
         "Filtering the data by intensity allows users to reduce the number of features included in the correlation analysis, "
@@ -92,10 +123,15 @@ if ('rearranged_omics_table' in st.session_state and not st.session_state['rearr
 
     # Display the binned table
     with st.expander(f"Binned Data at Level: {selected_level}, Filtered Dimension: {binned_level_filtered.shape}"):
-        st.dataframe(binned_level_filtered)
+        render_dataframe_preview(
+            binned_level_filtered,
+            "filtered binned data",
+            "binned_filtered",
+        )
 
-else:
-    st.warning("Please upload the data in the first page to continue the analysis here")
+
+hierarchical_binning_section()
+binned_transformation_section()
 
 st.write("## Correlation Estimate & Feature Filtering")   
 #####################################################################################
@@ -147,10 +183,19 @@ def correlation_estimate_and_filtering():
         st.write("")
 
         met_ft_filtered = met_ft.copy()
-        met_ft_filtered["Overall_sum"] = met_ft_filtered[numeric_cols].sum(axis=1)
+        numeric_cols_filtered = met_ft_filtered.select_dtypes(include=[np.number]).columns.tolist()
+        numeric_cols_filtered = [
+            col for col in numeric_cols_filtered
+            if col not in ["Overall_sum", "Variance"]
+        ]
+        met_ft_filtered["Overall_sum"] = met_ft_filtered[numeric_cols_filtered].sum(axis=1)
 
         with st.expander(f"Metabolite Data: {met_ft_filtered.shape[0]} features"):
-            st.dataframe(met_ft_filtered)
+            render_dataframe_preview(
+                met_ft_filtered,
+                "metabolite data",
+                "metabolite_unfiltered",
+            )
             st.info(
                 "👉 Scroll to the far right of the table to see the **Overall_sum** column. "
                 "This represents the total sum for each row and can be used with the filter options."
@@ -172,7 +217,11 @@ def correlation_estimate_and_filtering():
             st.session_state['metabolome_ft'] = met_ft_filtered
 
             with st.expander(f"Filtered Data: {met_ft_filtered.shape[0]} features"):
-                st.dataframe(met_ft_filtered)
+                render_dataframe_preview(
+                    met_ft_filtered,
+                    "intensity-filtered metabolite data",
+                    "metabolite_intensity_filtered",
+                )
 
         # ---------------- VARIANCE FILTER ----------------
         if st.checkbox(
@@ -192,8 +241,10 @@ def correlation_estimate_and_filtering():
             met_ft_filtered["Variance"] = met_ft_filtered[numeric_cols_filtered].var(axis=1)
 
             with st.expander(f"Metabolite Data with variance column: {met_ft_filtered.shape[0]} features"):
-                st.dataframe(
-                    met_ft_filtered.style.format({"Variance": "{:.2e}"})
+                render_dataframe_preview(
+                    met_ft_filtered,
+                    "metabolite variance data",
+                    "metabolite_variance_preview",
                 )
 
             met_ft_filtered, exclude_cols = filter_by_variance(
@@ -204,7 +255,11 @@ def correlation_estimate_and_filtering():
             st.warning(f"Metabolite features after variance filtering: {n_before_var} → {met_ft_filtered.shape[0]}")
 
             with st.expander(f"Filtered Metabolite Data: {met_ft_filtered.shape[0]} features"):
-                st.dataframe(met_ft_filtered)
+                render_dataframe_preview(
+                    met_ft_filtered,
+                    "variance-filtered metabolite data",
+                    "metabolite_variance_filtered",
+                )
 
         # cleanup
         met_ft_filtered = met_ft_filtered.drop(columns=["Overall_sum", "Variance"], errors="ignore")
@@ -217,58 +272,62 @@ def correlation_estimate_and_filtering():
 correlation_estimate_and_filtering()
 
 
-if st.button("Refresh Target/Decoy Dataframes", key="refresh_target_decoy"):
-    clear_correlation_outputs()
-    st.rerun()
+@st.fragment
+def target_decoy_generation_section():
+    if st.button("Refresh Target/Decoy Dataframes", key="refresh_target_decoy"):
+        clear_correlation_outputs()
+        st.rerun()
+
+    st.write("## Target vs Decoy Dataframe")
+    if 'metabolome_ft' in st.session_state and 'binned_omics_table' in st.session_state:
+        met_ft = st.session_state['metabolome_ft']
+        gen_ft = st.session_state['binned_omics_table']
+
+        # Combine the DataFrames
+        target_df = combine_dataframes(met_ft, gen_ft)
+
+        #Getting the node table as well
+        node_met = met_ft.copy()
+        node_gen = gen_ft.copy()
+
+        node_met['Node_Info'] = 'Omics_1'
+        node_met['Original_index'] = node_met.index.copy()
+
+        node_met.index = node_met.index.to_series().str.extract(r'(^\d+)', expand=False)
+
+        node_gen['Node_Info'] = 'Omics_2'
+        node_gen['Original_index'] = node_gen.index.copy()
+
+        node_table = combine_dataframes(node_met, node_gen)
+        st.session_state['node_table'] = node_table
+
+        # Decoy generation
+        np.random.seed(42)
+
+        decoy_gen_df = generate_decoy(gen_ft)
+
+        # Permute the values of genomics_ft
+        #decoy_gen_df = gen_ft.apply(lambda x: np.random.permutation(x), axis=0)
+        decoy_df = combine_dataframes(met_ft, decoy_gen_df)
+
+        st.session_state['target_omics'] = gen_ft
+        st.session_state['decoy_omics'] = decoy_gen_df
+
+        # Display the combined DataFrame in Streamlit
+        with st.expander(f"Target Dataframe {target_df.shape}"):
+            render_dataframe_preview(target_df, "target dataframe", "target_dataframe")
+
+        with st.expander(f"Decoy Dataframe {decoy_df.shape}"):
+            render_dataframe_preview(decoy_df, "decoy dataframe", "decoy_dataframe")
+
+        st.session_state['target_dataframe'] = target_df
+        st.session_state['decoy_dataframe'] = decoy_df
+
+    else:
+        st.warning("Please input the data in the first page to continue the analysis here")
 
 
-st.write("## Target vs Decoy Dataframe")
-if 'metabolome_ft' in st.session_state and 'binned_omics_table' in st.session_state:
-    met_ft = st.session_state['metabolome_ft']
-    gen_ft = st.session_state['binned_omics_table']
-
-    # Combine the DataFrames
-    target_df = combine_dataframes(met_ft, gen_ft)
-    
-    #Getting the node table as well
-    node_met = met_ft.copy()
-    node_gen = gen_ft.copy()
-
-    node_met['Node_Info'] = 'Omics_1'
-    node_met['Original_index'] = node_met.index.copy()
-
-    node_met.index = node_met.index.to_series().str.extract(r'(^\d+)', expand=False)
-    
-    node_gen['Node_Info'] = 'Omics_2'
-    node_gen['Original_index'] = node_gen.index.copy()
-
-    node_table = combine_dataframes(node_met, node_gen)
-    st.session_state['node_table'] = node_table
-
-    # Decoy generation
-    np.random.seed(42)
-
-    decoy_gen_df = generate_decoy(gen_ft)
-    
-    # Permute the values of genomics_ft
-    #decoy_gen_df = gen_ft.apply(lambda x: np.random.permutation(x), axis=0)
-    decoy_df = combine_dataframes(met_ft, decoy_gen_df)
-
-    st.session_state['target_omics'] = gen_ft
-    st.session_state['decoy_omics'] = decoy_gen_df
-
-    # Display the combined DataFrame in Streamlit
-    with st.expander(f"Target Dataframe {target_df.shape}"):
-        st.dataframe(target_df)
-
-    with st.expander(f"Decoy Dataframe {decoy_df.shape}"):
-        st.dataframe(decoy_df)
-
-    st.session_state['target_dataframe'] = target_df
-    st.session_state['decoy_dataframe'] = decoy_df
-
-else:
-    st.warning("Please input the data in the first page to continue the analysis here")
+target_decoy_generation_section()
 
 ######## Run Correlation Analysis -------------------------------------------------------
 st.markdown("<br>", unsafe_allow_html=True)
@@ -493,6 +552,9 @@ if all(key in st.session_state for key in ['target_dataframe', 'decoy_dataframe'
             st.success("✅ Correlation analysis completed!")
 
     elif run_corr_clicked and method == "sparcc":
+
+        from src.sparcc import *
+
         st.session_state["processing"] = True
         st.session_state["processing_method"] = st.session_state["method"]
 
@@ -570,6 +632,7 @@ if all(key in st.session_state for key in ['target_dataframe', 'decoy_dataframe'
         st.session_state["processing"] = False
     
     elif run_corr_clicked and method == "distance_corr":
+        from src.dist_correlation import *
         st.session_state["processing"] = True
         st.session_state["processing_method"] = st.session_state["method"]
 
@@ -668,6 +731,9 @@ if all(key in st.session_state for key in ['target_dataframe', 'decoy_dataframe'
             st.error(f"Distance correlation failed: {e}")
 
     elif run_corr_clicked and method == "joint_rpca":
+
+        from src.joint_rpca import *
+
         st.session_state["processing"] = True
         st.session_state["processing_method"] = st.session_state["method"]
 
