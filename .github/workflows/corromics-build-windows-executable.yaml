@@ -14,6 +14,7 @@ jobs:
     env:
       PYTHON_VERSION: "3.11"
       APP_NAME: "Corromics"
+      MAIN_ENV_NAME: "corromics-main"
       GEMELLI_ENV_NAME: "gemelli-standalone"
 
     steps:
@@ -30,23 +31,19 @@ jobs:
           channels: conda-forge
           channel-priority: strict
 
-      - name: Install main app dependencies
+      - name: Create main app conda environment
         shell: powershell
         run: |
-          $mainPrefix = Join-Path $env:GITHUB_WORKSPACE "dist_build\main-env"
-
-          conda create --prefix $mainPrefix -y python=${{ env.PYTHON_VERSION }} pip
-          & "$mainPrefix\python.exe" -m pip install --upgrade pip
-          & "$mainPrefix\python.exe" -m pip install -r requirements.txt
-          & "$mainPrefix\python.exe" -m pip install pyinstaller
-          & "$mainPrefix\python.exe" -m pip install git+https://github.com/Wang-Bioinformatics-Lab/GNPSDataPackage.git
+          conda create -y -n $env:MAIN_ENV_NAME python=$env:PYTHON_VERSION pip
+          conda run -n $env:MAIN_ENV_NAME python -m pip install --upgrade pip
+          conda run -n $env:MAIN_ENV_NAME pip install -r requirements.txt
+          conda run -n $env:MAIN_ENV_NAME pip install pyinstaller
+          conda run -n $env:MAIN_ENV_NAME pip install git+https://github.com/Wang-Bioinformatics-Lab/GNPSDataPackage.git
 
       - name: Create Gemelli worker conda environment
         shell: powershell
         run: |
-          $gemelliPrefix = Join-Path $env:GITHUB_WORKSPACE "dist_build\$env:GEMELLI_ENV_NAME"
-
-          conda env create --prefix $gemelliPrefix -f environment-gemelli-worker.yml
+          conda env create -f environment-gemelli-worker.yml
           conda clean -afy
 
       - name: Create Windows launcher script
@@ -142,14 +139,8 @@ jobs:
 
           New-Item -ItemType Directory -Force -Path dist_package\envs
 
-          $mainPrefix = Join-Path $env:GITHUB_WORKSPACE "dist_build\main-env"
-          $gemelliPrefix = Join-Path $env:GITHUB_WORKSPACE "dist_build\$env:GEMELLI_ENV_NAME"
-
-          conda info --envs
-          Test-Path "$mainPrefix\python.exe" | Write-Host
-          Test-Path "$gemelliPrefix\python.exe" | Write-Host
-          conda-pack -p $mainPrefix -o dist_package\main-env.tar.gz
-          conda-pack -p $gemelliPrefix -o dist_package\gemelli-env.tar.gz
+          conda-pack -n $env:MAIN_ENV_NAME -o dist_package\main-env.tar.gz --ignore-missing-files
+          conda-pack -n $env:GEMELLI_ENV_NAME -o dist_package\gemelli-env.tar.gz --ignore-missing-files
 
       - name: Prepare app folder
         shell: powershell
@@ -176,9 +167,7 @@ jobs:
       - name: Build launcher executable
         shell: powershell
         run: |
-          $mainPrefix = Join-Path $env:GITHUB_WORKSPACE "dist_build\main-env"
-
-          & "$mainPrefix\Scripts\pyinstaller.exe" `
+          conda run -n $env:MAIN_ENV_NAME pyinstaller `
             --onefile `
             --name Corromics `
             --distpath dist_package\Corromics `
