@@ -134,8 +134,8 @@ jobs:
 
           New-Item -ItemType Directory -Force -Path dist_package\envs
 
-          conda pack -n base -o dist_package\main-env.tar.gz
-          conda pack -n $env:GEMELLI_ENV_NAME -o dist_package\gemelli-env.tar.gz
+          conda-pack -n base -o dist_package\main-env.tar.gz
+          conda-pack -n $env:GEMELLI_ENV_NAME -o dist_package\gemelli-env.tar.gz
 
       - name: Prepare app folder
         shell: powershell
