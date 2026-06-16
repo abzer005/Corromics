@@ -41,7 +41,10 @@ jobs:
       - name: Create Gemelli worker conda environment
         shell: powershell
         run: |
-          conda env create -f environment-gemelli-worker.yml
+          $condaBase = conda info --base
+          $gemelliPrefix = Join-Path $condaBase "envs\$env:GEMELLI_ENV_NAME"
+
+          conda env create --prefix $gemelliPrefix -f environment-gemelli-worker.yml
           conda clean -afy
 
       - name: Create Windows launcher script
@@ -134,8 +137,13 @@ jobs:
 
           New-Item -ItemType Directory -Force -Path dist_package\envs
 
-          conda-pack -n base -o dist_package\main-env.tar.gz
-          conda-pack -n $env:GEMELLI_ENV_NAME -o dist_package\gemelli-env.tar.gz
+          $mainPrefix = python -c "import sys; print(sys.prefix)"
+          $condaBase = conda info --base
+          $gemelliPrefix = Join-Path $condaBase "envs\$env:GEMELLI_ENV_NAME"
+
+          conda info --envs
+          conda-pack -p $mainPrefix -o dist_package\main-env.tar.gz
+          conda-pack -p $gemelliPrefix -o dist_package\gemelli-env.tar.gz
 
       - name: Prepare app folder
         shell: powershell
