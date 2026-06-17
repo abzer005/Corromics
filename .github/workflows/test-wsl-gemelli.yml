@@ -52,13 +52,10 @@ jobs:
           $path = $workspace.Substring(2).Replace("\", "/")
           $wslWorkspace = "/mnt/$drive$path"
 
-          @'
-          source ~/miniforge3/etc/profile.d/conda.sh
-          conda activate gemelli-standalone
-          python - <<'PY'
-          import gemelli
-          print("gemelli import OK")
-          PY
-          '@ | Set-Content -Path test_gemelli_import.sh -Encoding UTF8
+          @(
+            'source ~/miniforge3/etc/profile.d/conda.sh'
+            'conda activate gemelli-standalone'
+            'python -c "import gemelli; print(''gemelli import OK'')"'
+          ) | Set-Content -Path test_gemelli_import.sh -Encoding ASCII
 
           wsl -d Ubuntu -- bash -lc "cd '$wslWorkspace' && bash test_gemelli_import.sh"
