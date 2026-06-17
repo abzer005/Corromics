@@ -47,4 +47,18 @@ jobs:
       - name: Test Gemelli import
         shell: powershell
         run: |
-          wsl -d Ubuntu -- bash -lc 'source ~/miniforge3/etc/profile.d/conda.sh && conda activate gemelli-standalone && python -c "import gemelli; print(\"gemelli import OK\")"'
+          $workspace = "${{ github.workspace }}"
+          $drive = $workspace.Substring(0,1).ToLower()
+          $path = $workspace.Substring(2).Replace("\", "/")
+          $wslWorkspace = "/mnt/$drive$path"
+
+          @'
+          source ~/miniforge3/etc/profile.d/conda.sh
+          conda activate gemelli-standalone
+          python - <<'PY'
+          import gemelli
+          print("gemelli import OK")
+          PY
+          '@ | Set-Content -Path test_gemelli_import.sh -Encoding UTF8
+
+          wsl -d Ubuntu -- bash -lc "cd '$wslWorkspace' && bash test_gemelli_import.sh"
