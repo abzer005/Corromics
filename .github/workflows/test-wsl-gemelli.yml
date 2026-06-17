@@ -1,0 +1,48 @@
+name: Test WSL Gemelli
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-wsl-gemelli:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check WSL
+        shell: powershell
+        run: |
+          wsl --status
+          wsl -l -v
+
+      - name: Install Miniforge inside WSL
+        shell: powershell
+        run: |
+          wsl bash -lc "wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh -O ~/miniforge.sh"
+          wsl bash -lc "bash ~/miniforge.sh -b -p ~/miniforge3"
+          wsl bash -lc "source ~/miniforge3/etc/profile.d/conda.sh && conda --version"
+
+      - name: Create Gemelli environment inside WSL
+        shell: powershell
+        run: |
+          $workspace = "${{ github.workspace }}"
+          $drive = $workspace.Substring(0,1).ToLower()
+          $path = $workspace.Substring(2).Replace("\", "/")
+          $wslWorkspace = "/mnt/$drive$path"
+
+          echo "Windows workspace: $workspace"
+          echo "WSL workspace: $wslWorkspace"
+
+          wsl bash -lc "source ~/miniforge3/etc/profile.d/conda.sh && conda env create -f '$wslWorkspace/environment-gemelli-worker.yml'"
+
+      - name: Test Gemelli worker Python
+        shell: powershell
+        run: |
+          wsl bash -lc "source ~/miniforge3/etc/profile.d/conda.sh && conda activate gemelli-standalone && which python && python --version"
+
+      - name: Test Gemelli import
+        shell: powershell
+        run: |
+          wsl bash -lc "source ~/miniforge3/etc/profile.d/conda.sh && conda activate gemelli-standalone && python -c 'import gemelli; print(\"gemelli import OK\")'"
