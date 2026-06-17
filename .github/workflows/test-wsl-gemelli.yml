@@ -37,10 +37,10 @@ jobs:
 
           wsl bash -lc "source ~/miniforge3/etc/profile.d/conda.sh && conda env create -f '$wslWorkspace/environment-gemelli-worker.yml'"
 
-      - name: Test Gemelli worker Python
+      - name: List conda environments
         shell: powershell
         run: |
-          wsl bash -lc "source ~/miniforge3/etc/profile.d/conda.sh && conda activate gemelli-standalone && which python && python --version"
+          wsl bash -lc "source ~/miniforge3/etc/profile.d/conda.sh && conda env list"
 
       - name: Test Gemelli import
         shell: powershell

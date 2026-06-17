@@ -15,7 +15,6 @@ jobs:
       PYTHON_VERSION: "3.11"
       APP_NAME: "Corromics"
       MAIN_ENV_NAME: "corromics-main"
-      GEMELLI_ENV_NAME: "gemelli-standalone"
 
     steps:
       - name: Checkout repository
@@ -40,12 +39,6 @@ jobs:
           conda run -n $env:MAIN_ENV_NAME pip install pyinstaller
           conda run -n $env:MAIN_ENV_NAME pip install git+https://github.com/Wang-Bioinformatics-Lab/GNPSDataPackage.git
 
-      - name: Create Gemelli worker conda environment
-        shell: powershell
-        run: |
-          conda env create -f environment-gemelli-worker.yml
-          conda clean -afy
-
       - name: Create Windows launcher script
         shell: powershell
         run: |
@@ -64,13 +57,13 @@ jobs:
               APP_DIR = Path(sys.executable).resolve().parent
           else:
               APP_DIR = Path(__file__).resolve().parent
-          LOG_DIR = APP_DIR / "logs"
+          
+              LOG_DIR = APP_DIR / "logs"
           LOG_DIR.mkdir(exist_ok=True)
 
           os.environ["ENVIRONMENT_MODE"] = "local"
-
-          GEMELLI_PYTHON = APP_DIR / "envs" / "gemelli-standalone" / "python.exe"
-          os.environ["GEMELLI_WORKER_PYTHON"] = str(GEMELLI_PYTHON)
+          os.environ["GEMELLI_WORKER_PYTHON"] = ""
+          os.environ["CORROMICS_GEMELLI_BACKEND"] = "disabled"
 
           PORT = 5000
           URL = f"http://localhost:{PORT}"
@@ -132,16 +125,13 @@ jobs:
           process.wait()
           '@ | Set-Content -Path launcher\CorromicsLauncher.py -Encoding UTF8
 
-      - name: Pack conda environments
+      - name: Pack main conda environment
         shell: powershell
         run: |
           conda install -y -c conda-forge conda-pack
-
           New-Item -ItemType Directory -Force -Path dist_package\envs
-
           conda-pack -n $env:MAIN_ENV_NAME -o dist_package\main-env.tar.gz --ignore-missing-files
-          conda-pack -n $env:GEMELLI_ENV_NAME -o dist_package\gemelli-env.tar.gz --ignore-missing-files
-
+          
       - name: Prepare app folder
         shell: powershell
         run: |
@@ -152,17 +142,12 @@ jobs:
           robocopy . dist_package\Corromics /E /XD .git .github dist dist_build dist_package __pycache__ .pytest_cache /XF *.tar.gz
           if ($LASTEXITCODE -le 7) { exit 0 } else { exit $LASTEXITCODE }
 
-      - name: Unpack conda environments into app folder
+      - name: Unpack main conda environment into app folder
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path dist_package\Corromics\envs\main
-          New-Item -ItemType Directory -Force -Path dist_package\Corromics\envs\gemelli-standalone
-
-          tar -xzf dist_package\main-env.tar.gz -C dist_package\Corromics\envs\main
-          tar -xzf dist_package\gemelli-env.tar.gz -C dist_package\Corromics\envs\gemelli-standalone
-
+          tar -xzf dist_package\main-env.tar.gz -C dist_package\Corromics\envs\main        
           dist_package\Corromics\envs\main\Scripts\conda-unpack.exe
-          dist_package\Corromics\envs\gemelli-standalone\Scripts\conda-unpack.exe
 
       - name: Build launcher executable
         shell: powershell
