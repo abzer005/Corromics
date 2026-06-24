@@ -19,11 +19,14 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Check WSL
+ 
+      - name: Install Ubuntu WSL distribution
         shell: powershell
         run: |
           wsl --status
+          wsl --list --online
+          wsl --install -d Ubuntu --no-launch
+          wsl -d Ubuntu -- bash -lc "echo 'Ubuntu WSL ready'; whoami; uname -a"
           wsl -l -v
 
       - name: Install Miniforge inside WSL
