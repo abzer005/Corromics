@@ -47,5 +47,5 @@ jobs:
       - name: Test Gemelli import
         shell: powershell
         run: |
-          wsl -d Ubuntu -- bash -lc "source /root/miniforge3/etc/profile.d/conda.sh && conda run -n gemelli-standalone python -c `"import gemelli; print('gemelli import OK')`""
+          wsl -d Ubuntu -- bash -lc 'source /root/miniforge3/etc/profile.d/conda.sh && conda run -n gemelli-standalone python -c "import gemelli; print(\"gemelli import OK\")"'
           
