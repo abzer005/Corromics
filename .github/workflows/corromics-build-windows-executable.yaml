@@ -20,6 +20,37 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Check WSL
+        shell: powershell
+        run: |
+          wsl --status
+          wsl -l -v
+
+      - name: Install Miniforge inside WSL
+        shell: powershell
+        run: |
+          wsl -d Ubuntu -- bash -lc "wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh -O ~/miniforge.sh"
+          wsl -d Ubuntu -- bash -lc "bash ~/miniforge.sh -b -p ~/miniforge3"
+          wsl -d Ubuntu -- /root/miniforge3/bin/conda --version
+
+      - name: Create Gemelli environment inside WSL
+        shell: powershell
+        run: |
+          $workspace = "${{ github.workspace }}"
+          $drive = $workspace.Substring(0,1).ToLower()
+          $path = $workspace.Substring(2).Replace("\", "/")
+          $wslWorkspace = "/mnt/$drive$path"
+
+          echo "Windows workspace: $workspace"
+          echo "WSL workspace: $wslWorkspace"
+
+          wsl -d Ubuntu -- /root/miniforge3/bin/conda env create -f "$wslWorkspace/environment-gemelli-worker.yml"
+
+      - name: Test WSL Gemelli import
+        shell: powershell
+        run: |
+          wsl -d Ubuntu -- /root/miniforge3/bin/conda run -n gemelli-standalone python -c "import gemelli; print('gemelli import OK')"
+
       - name: Set up Miniforge
         uses: conda-incubator/setup-miniconda@v3
         with:
@@ -58,12 +89,14 @@ jobs:
           else:
               APP_DIR = Path(__file__).resolve().parent
           
-              LOG_DIR = APP_DIR / "logs"
+          LOG_DIR = APP_DIR / "logs"
           LOG_DIR.mkdir(exist_ok=True)
 
           os.environ["ENVIRONMENT_MODE"] = "local"
-          os.environ["GEMELLI_WORKER_PYTHON"] = ""
-          os.environ["CORROMICS_GEMELLI_BACKEND"] = "disabled"
+          os.environ["CORROMICS_GEMELLI_BACKEND"] = "wsl"
+          os.environ["CORROMICS_WSL_DISTRO"] = "Ubuntu"
+          os.environ["CORROMICS_WSL_CONDA"] = "/root/miniforge3/bin/conda"
+          os.environ["CORROMICS_GEMELLI_ENV"] = "gemelli-standalone"
 
           PORT = 5000
           URL = f"http://localhost:{PORT}"

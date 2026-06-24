@@ -15,16 +15,118 @@ JOINT_RPCA_OMICS_PREFIX = "omics__"
 GEMELLI_WORKER_ENV_NAME = "gemelli-standalone"
 
 
+
+# def get_gemelli_worker_python():
+#     configured_python = os.environ.get("GEMELLI_WORKER_PYTHON")
+#     if configured_python:
+#         return configured_python
+
+#     if importlib.util.find_spec("gemelli"):
+#         return sys.executable
+
+#     for worker_python in _candidate_gemelli_worker_pythons():
+#         if worker_python.exists():
+#             return str(worker_python)
+
+#     return None
+
+# def check_joint_rpca_dependencies():
+#     missing = []
+#     worker_python = get_gemelli_worker_python()
+#     if not worker_python:
+#         missing.append(
+#             "Gemelli worker Python not found. Install gemelli in this environment, "
+#             f"create a conda env named {GEMELLI_WORKER_ENV_NAME}, or set GEMELLI_WORKER_PYTHON."
+#         )
+#     elif not Path(worker_python).exists():
+#         missing.append(f"Gemelli worker Python not found: {worker_python}")
+
+#     return missing
+
+def get_gemelli_worker_command():
+    """
+    Return the command prefix used to run Python with Gemelli available.
+
+    Native example:
+        ["C:/path/to/python.exe"]
+
+    WSL example:
+        ["wsl", "-d", "Ubuntu", "--", "/root/miniforge3/bin/conda",
+         "run", "-n", "gemelli-standalone", "python"]
+    """
+
+    backend = os.environ.get("CORROMICS_GEMELLI_BACKEND", "").strip().lower()
+
+    if backend == "disabled":
+        return None
+
+    if backend == "wsl":
+        if shutil.which("wsl") is None:
+            raise RuntimeError(
+                "Gemelli WSL backend requested, but wsl.exe was not found."
+            )
+
+        distro = os.environ.get("CORROMICS_WSL_DISTRO", "Ubuntu")
+        conda_path = os.environ.get("CORROMICS_WSL_CONDA", "/root/miniforge3/bin/conda")
+        env_name = os.environ.get("CORROMICS_GEMELLI_ENV", "gemelli-standalone")
+
+        return [
+            "wsl",
+            "-d",
+            distro,
+            "--",
+            conda_path,
+            "run",
+            "-n",
+            env_name,
+            "python",
+        ]
+
+    configured_python = os.environ.get("GEMELLI_WORKER_PYTHON")
+    if configured_python:
+        if not Path(configured_python).exists():
+            raise RuntimeError(f"Gemelli worker Python not found: {configured_python}")
+        return [configured_python]
+
+    if importlib.util.find_spec("gemelli"):
+        return [sys.executable]
+
+    for worker_python in _candidate_gemelli_worker_pythons():
+        if worker_python.exists():
+            return [str(worker_python)]
+
+    return None
+
+def get_gemelli_worker_python():
+    """
+    Backward-compatible helper for older code paths.
+    Prefer get_gemelli_worker_command() for new code.
+    """
+    cmd = get_gemelli_worker_command()
+    if not cmd:
+        return None
+
+    if len(cmd) == 1:
+        return cmd[0]
+
+    return " ".join(cmd)
+
+
 def check_joint_rpca_dependencies():
     missing = []
-    worker_python = get_gemelli_worker_python()
-    if not worker_python:
+
+    try:
+        worker_cmd = get_gemelli_worker_command()
+    except RuntimeError as exc:
+        missing.append(str(exc))
+        return missing
+
+    if not worker_cmd:
         missing.append(
-            "Gemelli worker Python not found. Install gemelli in this environment, "
-            f"create a conda env named {GEMELLI_WORKER_ENV_NAME}, or set GEMELLI_WORKER_PYTHON."
+            "Gemelli worker not found. Install gemelli in this environment, "
+            f"create a conda env named {GEMELLI_WORKER_ENV_NAME}, set GEMELLI_WORKER_PYTHON, "
+            "or set CORROMICS_GEMELLI_BACKEND=wsl."
         )
-    elif not Path(worker_python).exists():
-        missing.append(f"Gemelli worker Python not found: {worker_python}")
 
     return missing
 
@@ -132,21 +234,6 @@ def _candidate_gemelli_worker_pythons(env_name=GEMELLI_WORKER_ENV_NAME):
             continue
         for root in str(env_root).split(os.pathsep):
             yield _python_from_env_prefix(Path(root) / env_name)
-
-
-def get_gemelli_worker_python():
-    configured_python = os.environ.get("GEMELLI_WORKER_PYTHON")
-    if configured_python:
-        return configured_python
-
-    if importlib.util.find_spec("gemelli"):
-        return sys.executable
-
-    for worker_python in _candidate_gemelli_worker_pythons():
-        if worker_python.exists():
-            return str(worker_python)
-
-    return None
 
 
 def _run_joint_rpca_worker(
