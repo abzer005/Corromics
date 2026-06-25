@@ -6,15 +6,27 @@ The normal Windows `.exe` does not automatically use the WSL/Linux environment. 
 
 To use joint-RPCA, run Corromics directly inside WSL/Linux with Gemelli and its required dependencies installed there.
 
+This guide is written for users who are new to the terminal. In the examples below, the fake Ubuntu username is `maya`. Your username will be different.
+
 ## Section 1: If you already have WSL/Ubuntu installed
 
 1. Open Ubuntu from the Start menu or Windows Terminal.
 
-2. Confirm WSL is working:
+You should see a terminal window. The prompt may look something like this:
+
+```text
+maya@DESKTOP-12345:~$
+```
+
+This means you are inside Ubuntu. In this example, the Ubuntu username is `maya`.
+
+2. Confirm Ubuntu/WSL is working:
 
 ```bash
 uname -a
 ```
+
+This should print a line of system information. It is okay if it looks technical.
 
 3. Update Ubuntu:
 
@@ -23,15 +35,32 @@ sudo apt update
 sudo apt upgrade -y
 ```
 
-4. Clone or copy the Corromics repository into the Ubuntu/Linux filesystem, preferably under your home directory:
+Ubuntu may ask for your password. Type the Ubuntu password you created when setting up WSL, then press Enter. The password will not visibly appear while you type. That is normal.
+
+4. Clone or copy the Corromics repository into your Ubuntu home folder.
+
+First go to your Ubuntu home folder:
 
 ```bash
 cd ~
-git clone <CORROMICS_REPOSITORY_URL>
+```
+
+For a user named `maya`, this folder is:
+
+```text
+/home/maya
+```
+
+Then download the Corromics repository:
+
+```bash
+git clone https://github.com/Functional-Metabolomics-Lab/Corromics.git
 cd Corromics
 ```
 
-Using the Ubuntu home folder is preferred over `/mnt/c/...` because it is usually faster and avoids some Windows/Linux file permission issues.
+Use the Ubuntu home folder, such as `/home/maya/Corromics`, instead of putting the repository in your Windows Desktop or Downloads folder.
+
+Why this matters: Ubuntu can also see Windows files, but those files appear under paths such as `/mnt/c/Users/maya/Desktop`. Beginners do not need to use those paths here. Keeping Corromics inside the Ubuntu home folder is usually faster and avoids Windows/Linux file permission problems.
 
 5. Run the WSL/Linux joint-RPCA setup script.
 
@@ -47,6 +76,8 @@ bash setup_wsl_joint_rpca.sh
 conda activate corromics-main
 streamlit run Home.py --server.port 5000 --server.address 127.0.0.1
 ```
+
+Keep this Ubuntu terminal window open while using Corromics. If you close it, the app will stop.
 
 7. Open Corromics in the Windows browser:
 
