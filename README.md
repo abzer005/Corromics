@@ -24,7 +24,7 @@ The Windows app supports the standard Corromics workflow.
 
 **Note:** joint-RPCA/Gemelli is disabled in the Windows executable because some required dependencies are Linux-compatible and are not reliably available as normal Windows dependencies.
 
-If you only need the standard Corromics app, no WSL setup is required.
+**If you only need the standard Corromics app, no WSL setup is required.**
 
 ### joint-RPCA/Gemelli Users on Windows
 
