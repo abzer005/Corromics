@@ -9,20 +9,19 @@ Corromics is a web-based application designed to uncover correlation patterns be
 Running Corromics in the [cloud](https://corromics.gnps2.org/) has a built-in safeguard: a **limit of 1 million correlations** to prevent crashes. For larger datasets, we **strongly recommend installing and running Corromics locally**, allowing faster performance and access to more computing power directly on your machine.
 
 
-## 1. Windows Users: Portable Corromics App
+## 1. Windows Users: Corromics MSI Installer
 
-You can directly download the portable Corromics Windows app from our lab's website:
+You can directly download the Corromics Windows installer from our lab's website:
 
 🔗 [www.functional-metabolomics.com/resources](https://www.functional-metabolomics.com/resources)
 
 - Click the **Download** button next to *Corromics*.
-- Extract the downloaded `.zip` file.
-- Open the extracted `Corromics` folder.
-- Double-click `Corromics.exe`.
+- Run the downloaded `.msi` installer and follow the on-screen instructions.
+- Launch Corromics from the installed shortcut.
 
 The Windows app supports the standard Corromics workflow.
 
-**Note:** joint-RPCA/Gemelli is disabled in the Windows executable because some required dependencies are Linux-compatible and are not reliably available as normal Windows dependencies.
+**Note:** joint-RPCA/Gemelli is disabled in the native Windows installation because the full Gemelli/joint-RPCA dependency stack is not reliably available as native Windows/win-64 packages.
 
 **If you only need the standard Corromics app, no WSL setup is required.**
 
@@ -30,14 +29,14 @@ The Windows app supports the standard Corromics workflow.
 
 If you need joint-RPCA/Gemelli, run Corromics directly inside WSL/Linux.
 
-The Windows `.exe` does not automatically connect to or use WSL. The Windows app and the WSL/Linux setup are separate ways to run Corromics.
+The Windows installation does not automatically connect to or use WSL. The Windows app and the WSL/Linux setup are separate ways to run Corromics.
 
 To use joint-RPCA:
 
 - Install WSL/Ubuntu if you do not already have it.
 - Open Ubuntu.
 - Clone or copy the Corromics repository into the Ubuntu/Linux filesystem, preferably under your home directory.
-- Follow the setup instructions in [`wsl_joint_rpca/README.md`](wsl_joint_rpca/README.md).
+- Follow the setup instructions in [`WSL_Joint_RPCA/README.md`](WSL_Joint_RPCA/README.md).
 
 After setup, start Corromics from the Ubuntu terminal:
 
@@ -66,7 +65,7 @@ For heavy analyses or larger datasets, it’s best to run Corromics locally:
 git clone https://github.com/Functional-Metabolomics-Lab/Corromics.git
 cd Corromics
 ````
- - Install dependencies and launch the app. Make sure you have Python 3.11 installed (same version used in the Windows .exe build).
+ - Install dependencies and launch the app. Make sure you have Python 3.11 installed (same version used in the Windows MSI build).
 ```
 pip install -r requirements.txt
 streamlit run Home.py
@@ -78,4 +77,3 @@ Running locally avoids browser memory limits and gives full control over computa
 ## Closing the App
 To stop Corromics, press **Ctrl + C** in the terminal.
 Even if you close the browser, the app keeps running in the background until you stop it from the terminal.
-

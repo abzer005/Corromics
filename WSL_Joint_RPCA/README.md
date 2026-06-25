@@ -2,7 +2,7 @@
 
 Having WSL installed on Windows is useful beyond Corromics. Many bioinformatics and computational biology tools are developed primarily for Linux, or have dependencies that are more reliable on Linux than on native Windows. WSL lets Windows users run these Linux-compatible tools without needing a separate Linux computer.
 
-The normal Windows `.exe` does not automatically use the WSL/Linux environment. The Windows executable remains available for the rest of the Corromics app, with joint-RPCA disabled.
+The normal native Windows installation does not automatically use the WSL/Linux environment. The Windows installation remains available for the rest of the Corromics app, with joint-RPCA disabled.
 
 To use joint-RPCA, run Corromics directly inside WSL/Linux with Gemelli and its required dependencies installed there.
 
@@ -67,7 +67,7 @@ Why this matters: Ubuntu can also see Windows files, but those files appear unde
 The script may ask for your Ubuntu password if it needs to install missing Ubuntu packages such as `wget`. This is the Ubuntu password you created when setting up WSL, not your Windows password.
 
 ```bash
-bash setup_wsl_joint_rpca.sh
+bash WSL_Joint_RPCA/setup_wsl_joint_rpca.sh
 ```
 
 6. Start Corromics from WSL/Linux:
@@ -105,8 +105,8 @@ wsl --install -d Ubuntu
 
 ## Important Notes
 
-The Windows `.exe` and the WSL/Linux setup are separate paths.
+The native Windows installation and the WSL/Linux setup are separate paths.
 
-Double-clicking `Corromics.exe` on Windows starts the normal Windows executable. In that mode, joint-RPCA/Gemelli is disabled by design.
+Launching Corromics from the Windows installer shortcut starts the normal native Windows app. In that mode, joint-RPCA/Gemelli is disabled by design.
 
-For joint-RPCA, start Corromics from the Ubuntu/WSL terminal after running `setup_wsl_joint_rpca.sh`.
+For joint-RPCA, start Corromics from the Ubuntu/WSL terminal after running `WSL_Joint_RPCA/setup_wsl_joint_rpca.sh`.

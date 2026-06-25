@@ -443,7 +443,7 @@ if method == "joint_rpca":
     joint_rpca_backend = os.environ.get("CORROMICS_GEMELLI_BACKEND", "disabled").strip().lower()
     if joint_rpca_backend == "disabled":
         st.warning(
-            "joint-RPCA is disabled in the Windows executable version. "
+            "joint-RPCA is disabled in the native Windows installation. "
             "To use joint-RPCA, run Corromics from WSL/Linux with Gemelli installed."
         )
         st.stop()
@@ -743,7 +743,7 @@ if all(key in st.session_state for key in ['target_dataframe', 'decoy_dataframe'
         joint_rpca_backend = os.environ.get("CORROMICS_GEMELLI_BACKEND", "disabled").strip().lower()
         if joint_rpca_backend == "disabled":
             st.warning(
-                "joint-RPCA is disabled in the Windows executable version. "
+                "joint-RPCA is disabled in the native Windows installation. "
                 "To use joint-RPCA, run Corromics from WSL/Linux with Gemelli installed."
             )
             st.stop()
