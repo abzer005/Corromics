@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import numpy as np
 import random
@@ -439,6 +440,14 @@ if method == "sparcc":
         )
 
 if method == "joint_rpca":
+    joint_rpca_backend = os.environ.get("CORROMICS_GEMELLI_BACKEND", "disabled").strip().lower()
+    if joint_rpca_backend == "disabled":
+        st.warning(
+            "joint-RPCA is disabled in the Windows executable version. "
+            "To use joint-RPCA, run Corromics from WSL/Linux with Gemelli installed."
+        )
+        st.stop()
+
     st.warning(
         "Joint-RPCA is an exploratory multi-omics ordination method. The scores reflect feature concordance "
         "in the Joint-RPCA loading space, not raw abundance correlations. FDR filtering is not currently available "
@@ -731,6 +740,13 @@ if all(key in st.session_state for key in ['target_dataframe', 'decoy_dataframe'
             st.error(f"Distance correlation failed: {e}")
 
     elif run_corr_clicked and method == "joint_rpca":
+        joint_rpca_backend = os.environ.get("CORROMICS_GEMELLI_BACKEND", "disabled").strip().lower()
+        if joint_rpca_backend == "disabled":
+            st.warning(
+                "joint-RPCA is disabled in the Windows executable version. "
+                "To use joint-RPCA, run Corromics from WSL/Linux with Gemelli installed."
+            )
+            st.stop()
 
         st.session_state["processing"] = True
         st.session_state["processing_method"] = st.session_state["method"]

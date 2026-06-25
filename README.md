@@ -9,14 +9,48 @@ Corromics is a web-based application designed to uncover correlation patterns be
 Running Corromics in the [cloud](https://corromics.gnps2.org/) has a built-in safeguard: a **limit of 1 million correlations** to prevent crashes. For larger datasets, we **strongly recommend installing and running Corromics locally**, allowing faster performance and access to more computing power directly on your machine.
 
 
-## 1. Windows Users
+## 1. Windows Users: Portable Corromics App
 
-You can directly download the **Windows executable (.exe)** from our lab's website:
+You can directly download the portable Corromics Windows app from our lab's website:
 
 🔗 [www.functional-metabolomics.com/resources](https://www.functional-metabolomics.com/resources)
 
 - Click the **Download** button next to *Corromics*.
-- Run the installer and follow the on-screen instructions.
+- Extract the downloaded `.zip` file.
+- Open the extracted `Corromics` folder.
+- Double-click `Corromics.exe`.
+
+The Windows app supports the standard Corromics workflow.
+
+**Note:** joint-RPCA/Gemelli is disabled in the Windows executable because some required dependencies are Linux-compatible and are not reliably available as normal Windows dependencies.
+
+If you only need the standard Corromics app, no WSL setup is required.
+
+### joint-RPCA/Gemelli Users on Windows
+
+If you need joint-RPCA/Gemelli, run Corromics directly inside WSL/Linux.
+
+The Windows `.exe` does not automatically connect to or use WSL. The Windows app and the WSL/Linux setup are separate ways to run Corromics.
+
+To use joint-RPCA:
+
+- Install WSL/Ubuntu if you do not already have it.
+- Open Ubuntu.
+- Clone or copy the Corromics repository into the Ubuntu/Linux filesystem, preferably under your home directory.
+- Follow the setup instructions in [`wsl_joint_rpca/README.md`](wsl_joint_rpca/README.md).
+
+After setup, start Corromics from the Ubuntu terminal:
+
+```bash
+conda activate corromics-main
+streamlit run Home.py --server.port 5000 --server.address 127.0.0.1
+```
+
+Then open this URL in your Windows browser:
+
+```text
+http://localhost:5000
+```
 
 ---
 
@@ -44,5 +78,4 @@ Running locally avoids browser memory limits and gives full control over computa
 ## Closing the App
 To stop Corromics, press **Ctrl + C** in the terminal.
 Even if you close the browser, the app keeps running in the background until you stop it from the terminal.
-
 

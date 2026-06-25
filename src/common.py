@@ -187,14 +187,18 @@ def get_max_correlation_limit():
 
 def initialize_app():
 
-    # Try to read from Streamlit secrets
-    environment_mode = st.secrets.get("ENVIRONMENT_MODE", None)
+    # Docker/server deployments should be able to override local secrets.
+    environment_mode = os.getenv("ENVIRONMENT_MODE", None)
+
+    # If not found, read from Streamlit secrets
+    if environment_mode is None:
+        environment_mode = st.secrets.get("ENVIRONMENT_MODE", None)
+
     if environment_mode is None:
         environment_mode = st.secrets.get("environment", {}).get("mode", None)
 
-    # If not found, fallback to environment variable
     if environment_mode is None:
-        environment_mode = os.getenv("ENVIRONMENT_MODE", "local")
+        environment_mode = "local"
     
     # Store in session state for global access
     st.session_state.is_restricted_mode = environment_mode in ["gnps", "streamlit"]

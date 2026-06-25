@@ -1,7 +1,6 @@
 import importlib.util
 import json
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -12,88 +11,30 @@ import pandas as pd
 
 JOINT_RPCA_METABOLOME_PREFIX = "metabolome__"
 JOINT_RPCA_OMICS_PREFIX = "omics__"
-GEMELLI_WORKER_ENV_NAME = "gemelli-standalone"
 
 
+if "CORROMICS_GEMELLI_BACKEND" not in os.environ:
+    os.environ["CORROMICS_GEMELLI_BACKEND"] = "disabled" if os.name == "nt" else "local"
 
-# def get_gemelli_worker_python():
-#     configured_python = os.environ.get("GEMELLI_WORKER_PYTHON")
-#     if configured_python:
-#         return configured_python
-
-#     if importlib.util.find_spec("gemelli"):
-#         return sys.executable
-
-#     for worker_python in _candidate_gemelli_worker_pythons():
-#         if worker_python.exists():
-#             return str(worker_python)
-
-#     return None
-
-# def check_joint_rpca_dependencies():
-#     missing = []
-#     worker_python = get_gemelli_worker_python()
-#     if not worker_python:
-#         missing.append(
-#             "Gemelli worker Python not found. Install gemelli in this environment, "
-#             f"create a conda env named {GEMELLI_WORKER_ENV_NAME}, or set GEMELLI_WORKER_PYTHON."
-#         )
-#     elif not Path(worker_python).exists():
-#         missing.append(f"Gemelli worker Python not found: {worker_python}")
-
-#     return missing
 
 def get_gemelli_worker_command():
     """
-    Return the command prefix used to run Python with Gemelli available.
-
-    Native example:
-        ["C:/path/to/python.exe"]
-
-    WSL example:
-        ["wsl", "-d", "Ubuntu", "--", "/root/miniforge3/bin/conda",
-         "run", "-n", "gemelli-standalone", "python"]
+    Return the local command prefix used to run Python with Gemelli available.
     """
 
-    backend = os.environ.get("CORROMICS_GEMELLI_BACKEND", "").strip().lower()
+    backend = os.environ.get("CORROMICS_GEMELLI_BACKEND", "disabled").strip().lower()
 
     if backend == "disabled":
         return None
 
-    if backend == "wsl":
-        if shutil.which("wsl") is None:
-            raise RuntimeError(
-                "Gemelli WSL backend requested, but wsl.exe was not found."
-            )
-
-        distro = os.environ.get("CORROMICS_WSL_DISTRO", "Ubuntu")
-        conda_path = os.environ.get("CORROMICS_WSL_CONDA", "/root/miniforge3/bin/conda")
-        env_name = os.environ.get("CORROMICS_GEMELLI_ENV", "gemelli-standalone")
-
-        return [
-            "wsl",
-            "-d",
-            distro,
-            "--",
-            conda_path,
-            "run",
-            "-n",
-            env_name,
-            "python",
-        ]
-
-    configured_python = os.environ.get("GEMELLI_WORKER_PYTHON")
-    if configured_python:
-        if not Path(configured_python).exists():
-            raise RuntimeError(f"Gemelli worker Python not found: {configured_python}")
-        return [configured_python]
+    if backend != "local":
+        raise RuntimeError(
+            f"Unsupported CORROMICS_GEMELLI_BACKEND={backend!r}. "
+            "Use 'disabled' or 'local'."
+        )
 
     if importlib.util.find_spec("gemelli"):
         return [sys.executable]
-
-    for worker_python in _candidate_gemelli_worker_pythons():
-        if worker_python.exists():
-            return [str(worker_python)]
 
     return None
 
@@ -106,10 +47,7 @@ def get_gemelli_worker_python():
     if not cmd:
         return None
 
-    if len(cmd) == 1:
-        return cmd[0]
-
-    return " ".join(cmd)
+    return cmd[0]
 
 
 def check_joint_rpca_dependencies():
@@ -123,9 +61,7 @@ def check_joint_rpca_dependencies():
 
     if not worker_cmd:
         missing.append(
-            "Gemelli worker not found. Install gemelli in this environment, "
-            f"create a conda env named {GEMELLI_WORKER_ENV_NAME}, set GEMELLI_WORKER_PYTHON, "
-            "or set CORROMICS_GEMELLI_BACKEND=wsl."
+            "Gemelli worker not found. Install gemelli in this active Linux/WSL environment."
         )
 
     return missing
@@ -175,67 +111,6 @@ def joint_rpca_scores_to_long(correlation_matrix):
     return long_df, cross_block
 
 
-def _python_from_env_prefix(env_prefix):
-    env_prefix = Path(env_prefix).expanduser()
-    scripts_dir = "Scripts" if os.name == "nt" else "bin"
-    python_name = "python.exe" if os.name == "nt" else "python"
-    return env_prefix / scripts_dir / python_name
-
-
-def _conda_env_prefix_from_cli(env_name):
-    for executable_name in ["conda", "mamba", "micromamba"]:
-        executable = shutil.which(executable_name)
-        if not executable:
-            continue
-
-        try:
-            completed = subprocess.run(
-                [executable, "env", "list", "--json"],
-                text=True,
-                capture_output=True,
-                check=False,
-                timeout=15,
-            )
-        except (OSError, subprocess.TimeoutExpired):
-            continue
-
-        if completed.returncode != 0:
-            continue
-
-        try:
-            envs = json.loads(completed.stdout).get("envs", [])
-        except json.JSONDecodeError:
-            continue
-
-        for env_prefix in envs:
-            env_prefix = Path(env_prefix)
-            if env_prefix.name == env_name:
-                return env_prefix
-
-    return None
-
-
-def _candidate_gemelli_worker_pythons(env_name=GEMELLI_WORKER_ENV_NAME):
-    env_prefix = _conda_env_prefix_from_cli(env_name)
-    if env_prefix:
-        yield _python_from_env_prefix(env_prefix)
-
-    for env_root in [
-        os.environ.get("CONDA_ENVS_PATH"),
-        Path(os.environ["CONDA_PREFIX"]).parent if os.environ.get("CONDA_PREFIX") else None,
-        Path.home() / "miniconda3" / "envs",
-        Path.home() / "anaconda3" / "envs",
-        Path.home() / "mambaforge" / "envs",
-        Path.home() / "miniforge3" / "envs",
-        Path.home() / "micromamba" / "envs",
-        Path("/opt/conda/envs"),
-    ]:
-        if not env_root:
-            continue
-        for root in str(env_root).split(os.pathsep):
-            yield _python_from_env_prefix(Path(root) / env_name)
-
-
 def _run_joint_rpca_worker(
     metabolome_for_rpca,
     omics_for_rpca,
@@ -243,8 +118,8 @@ def _run_joint_rpca_worker(
     max_iterations,
     min_feature_frequency,
 ):
-    worker_python = get_gemelli_worker_python()
-    if not worker_python:
+    worker_cmd = get_gemelli_worker_command()
+    if not worker_cmd:
         raise ImportError("Gemelli worker Python could not be resolved.")
 
     worker_script = Path(__file__).with_name("joint_rpca_worker.py")
@@ -258,8 +133,7 @@ def _run_joint_rpca_worker(
         metabolome_for_rpca.to_csv(metabolome_path, sep="\t")
         omics_for_rpca.to_csv(omics_path, sep="\t")
 
-        command = [
-            worker_python,
+        command = worker_cmd + [
             str(worker_script),
             "--metabolome",
             str(metabolome_path),
@@ -312,7 +186,7 @@ def run_joint_rpca_for_omics_pair(
     missing = check_joint_rpca_dependencies()
     if missing:
         raise ImportError(
-            "Joint-RPCA requires the optional standalone Gemelli worker environment: "
+            "Joint-RPCA requires Gemelli in the active local Linux/WSL environment: "
             + ", ".join(missing)
         )
 

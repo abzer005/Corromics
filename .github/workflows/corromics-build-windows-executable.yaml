@@ -19,40 +19,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
- 
-      - name: Install Ubuntu WSL distribution
-        shell: powershell
-        run: |
-          wsl --status
-          wsl --list --online
-          wsl --install -d Ubuntu --no-launch
-          wsl -d Ubuntu -- bash -lc "echo 'Ubuntu WSL ready'; whoami; uname -a"
-          wsl -l -v
-
-      - name: Install Miniforge inside WSL
-        shell: powershell
-        run: |
-          wsl -d Ubuntu -- bash -lc "wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh -O ~/miniforge.sh"
-          wsl -d Ubuntu -- bash -lc "bash ~/miniforge.sh -b -p ~/miniforge3"
-          wsl -d Ubuntu -- /root/miniforge3/bin/conda --version
-
-      - name: Create Gemelli environment inside WSL
-        shell: powershell
-        run: |
-          $workspace = "${{ github.workspace }}"
-          $drive = $workspace.Substring(0,1).ToLower()
-          $path = $workspace.Substring(2).Replace("\", "/")
-          $wslWorkspace = "/mnt/$drive$path"
-
-          echo "Windows workspace: $workspace"
-          echo "WSL workspace: $wslWorkspace"
-
-          wsl -d Ubuntu -- /root/miniforge3/bin/conda env create -f "$wslWorkspace/environment-gemelli-worker.yml"
-
-      - name: Test WSL Gemelli import
-        shell: powershell
-        run: |
-          wsl -d Ubuntu -- /root/miniforge3/bin/conda run -n gemelli-standalone python -c "import gemelli; print('gemelli import OK')"
 
       - name: Set up Miniforge
         uses: conda-incubator/setup-miniconda@v3
@@ -72,94 +38,6 @@ jobs:
           conda run -n $env:MAIN_ENV_NAME pip install -r requirements.txt
           conda run -n $env:MAIN_ENV_NAME pip install pyinstaller
           conda run -n $env:MAIN_ENV_NAME pip install git+https://github.com/Wang-Bioinformatics-Lab/GNPSDataPackage.git
-
-      - name: Create Windows launcher script
-        shell: powershell
-        run: |
-          New-Item -ItemType Directory -Force -Path launcher
-
-          @'
-          import os
-          import sys
-          import time
-          import socket
-          import webbrowser
-          import subprocess
-          from pathlib import Path
-
-          if getattr(sys, "frozen", False):
-              APP_DIR = Path(sys.executable).resolve().parent
-          else:
-              APP_DIR = Path(__file__).resolve().parent
-          
-          LOG_DIR = APP_DIR / "logs"
-          LOG_DIR.mkdir(exist_ok=True)
-
-          os.environ["ENVIRONMENT_MODE"] = "local"
-          os.environ["CORROMICS_GEMELLI_BACKEND"] = "wsl"
-          os.environ["CORROMICS_WSL_DISTRO"] = "Ubuntu"
-          os.environ["CORROMICS_WSL_CONDA"] = "/root/miniforge3/bin/conda"
-          os.environ["CORROMICS_GEMELLI_ENV"] = "gemelli-standalone"
-
-          PORT = 5000
-          URL = f"http://localhost:{PORT}"
-
-          def wait_for_port(host="127.0.0.1", port=5000, timeout=60):
-              start = time.time()
-              while time.time() - start < timeout:
-                  try:
-                      with socket.create_connection((host, port), timeout=2):
-                          return True
-                  except OSError:
-                      time.sleep(1)
-              return False
-
-          streamlit_exe = APP_DIR / "envs" / "main" / "Scripts" / "streamlit.exe"
-
-          candidates = [
-              APP_DIR / "Home.py",
-              APP_DIR / "app.py",
-              APP_DIR / "main.py",
-              APP_DIR / "streamlit_app.py",
-          ]
-
-          app_file = None
-          for candidate in candidates:
-              if candidate.exists():
-                  app_file = candidate
-                  break
-
-          if app_file is None:
-              raise FileNotFoundError(
-                  "Could not find Streamlit entry file. Expected one of: Home.py, app.py, main.py, streamlit_app.py"
-              )
-
-          cmd = [
-              str(streamlit_exe),
-              "run",
-              str(app_file),
-              "--server.port",
-              str(PORT),
-              "--server.address",
-              "127.0.0.1",
-              "--server.headless",
-              "true",
-          ]
-
-          with open(LOG_DIR / "corromics_streamlit.log", "w", encoding="utf-8") as log:
-              process = subprocess.Popen(
-                  cmd,
-                  cwd=str(APP_DIR),
-                  stdout=log,
-                  stderr=log,
-                  shell=False,
-              )
-
-          if wait_for_port(port=PORT):
-              webbrowser.open(URL)
-
-          process.wait()
-          '@ | Set-Content -Path launcher\CorromicsLauncher.py -Encoding UTF8
 
       - name: Pack main conda environment
         shell: powershell
@@ -194,7 +72,7 @@ jobs:
             --distpath dist_package\Corromics `
             --workpath build_launcher `
             --specpath build_launcher `
-            launcher\CorromicsLauncher.py
+            launcher.py
 
       - name: Remove GraphML files from package
         shell: powershell
