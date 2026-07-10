@@ -1,79 +1,332 @@
-![banner](assets/corromics_full_logo.png)
+![Corromics banner](assets/corromics_full_logo.png)
 
-Corromics is a web-based application designed to uncover correlation patterns between microbiome and metabolome data. By integrating microbial (e.g., ASV sequences) or other omics information with metabolite information, Corromics constructs a network where each microbial entity and metabolite is represented as a node. Edges are drawn between nodes to visualize their interactions, helping users discern meaningful relationships between microbial communities and metabolic profiles. This tool facilitates a deeper understanding of microbial-metabolite associations, enabling insights into functional dynamics in diverse biological systems.
+# Corromics application
 
-# Corromics Installation Guide
+Corromics is an interactive Streamlit application for discovering and exporting
+cross-omics associations. This repository contains the web application, Docker
+configuration, native application build files, example data, and WSL/Linux
+setup for optional Joint-RPCA/Gemelli analyses.
 
-## Why Install Corromics Locally?
+- Hosted application: <https://corromics.gnps2.org/>
+- Application repository: <https://github.com/abzer005/Corromics>
+- Python package: <https://github.com/abzer005/corromics_python_package>
+- Windows installer: <https://www.functional-metabolomics.com/resources>
 
-Running Corromics in the [cloud](https://corromics.gnps2.org/) has a built-in safeguard: a **limit of 1 million correlations** to prevent crashes. For larger datasets, we **strongly recommend installing and running Corromics locally**, allowing faster performance and access to more computing power directly on your machine.
+The application homepage contains the scientific workflow, input requirements,
+method descriptions, and interpretation guidance. This README focuses on
+installation, deployment, compatibility, and operations.
 
+## Choose how to run Corromics
 
-## 1. Windows Users: Corromics MSI Installer
+| Platform or use case | Recommended route | Alternative |
+|---|---|---|
+| Windows, complete Linux-compatible workflow | WSL2 | Docker Desktop |
+| Windows, standard workflow | Windows installer | WSL2 or Docker Desktop |
+| Linux | Git clone | Docker |
+| macOS | Git clone | Docker Desktop |
+| Small datasets on any OS | Hosted web app | — |
+| Notebooks, pipelines, servers, or HPC | Python package | Editable package clone |
 
-You can directly download the Corromics Windows installer from our lab's website:
+## Run from a Git clone on Linux or macOS
 
-🔗 [www.functional-metabolomics.com/resources](https://www.functional-metabolomics.com/resources)
-
-- Click the **Download** button next to *Corromics*.
-- Run the downloaded `.msi` installer and follow the on-screen instructions.
-- Launch Corromics from the installed shortcut.
-
-The Windows app supports the standard Corromics workflow.
-
-**Note:** joint-RPCA/Gemelli is disabled in the native Windows installation because the full Gemelli/joint-RPCA dependency stack is not reliably available as native Windows/win-64 packages.
-
-**If you only need the standard Corromics app, no WSL setup is required.**
-
-### joint-RPCA/Gemelli Users on Windows
-
-If you need joint-RPCA/Gemelli, run Corromics directly inside WSL/Linux.
-
-The Windows installation does not automatically connect to or use WSL. The Windows app and the WSL/Linux setup are separate ways to run Corromics.
-
-To use joint-RPCA:
-
-- Install WSL/Ubuntu if you do not already have it.
-- Open Ubuntu.
-- Clone or copy the Corromics repository into the Ubuntu/Linux filesystem, preferably under your home directory.
-- Follow the setup instructions in [`WSL_Joint_RPCA/README.md`](WSL_Joint_RPCA/README.md).
-
-After setup, start Corromics from the Ubuntu terminal:
+Python 3.11 is recommended because it matches the application and Windows
+build.
 
 ```bash
+git clone https://github.com/abzer005/Corromics.git
+cd Corromics
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+streamlit run Home.py
+```
+
+Open <http://localhost:8501>. Stop the application with `Ctrl+C`. Closing the
+browser does not stop the Streamlit process.
+
+## Run with Docker
+
+Install Docker Desktop on Windows or macOS, or Docker Engine on Linux. On
+Windows, enable Docker Desktop's WSL2 backend.
+
+```bash
+git clone https://github.com/abzer005/Corromics.git
+cd Corromics
+docker build -t corromics .
+docker run --rm \
+  -p 5000:5000 \
+  -e ENVIRONMENT_MODE=local \
+  -v "$(pwd)/logs:/app/logs" \
+  corromics
+```
+
+Open <http://localhost:5000>. Stop the foreground container with `Ctrl+C`.
+
+Run in the background:
+
+```bash
+docker run -d \
+  --name corromics \
+  -p 5000:5000 \
+  -e ENVIRONMENT_MODE=local \
+  -v "$(pwd)/logs:/app/logs" \
+  corromics
+```
+
+Stop and remove it:
+
+```bash
+docker stop corromics
+docker rm corromics
+```
+
+The repository also contains `docker-compose.yml` for the hosted deployment and
+`docker-compose-dev.yml` for its local port override. Direct `docker build` and
+`docker run` are shown above because they explicitly select local mode.
+
+## Run on Windows with WSL2
+
+WSL2 is the recommended Windows route when Joint-RPCA/Gemelli is required.
+Native Windows and WSL are separate installations.
+
+Open PowerShell as Administrator:
+
+```powershell
+wsl --install -d Ubuntu
+```
+
+Restart Windows if requested, open Ubuntu, and create the requested Linux user.
+Then run:
+
+```bash
+sudo apt update
+sudo apt upgrade -y
+sudo apt install -y git
+cd ~
+git clone https://github.com/abzer005/Corromics.git
+cd Corromics
+bash WSL_Joint_RPCA/setup_wsl_joint_rpca.sh
 conda activate corromics-main
 streamlit run Home.py --server.port 5000 --server.address 127.0.0.1
 ```
 
-Then open this URL in your Windows browser:
+Open <http://localhost:5000> in the Windows browser. Keep the repository under
+the WSL home directory, such as `~/Corromics`, rather than `/mnt/c/...`; this is
+usually faster and avoids cross-filesystem permission problems.
+
+See [WSL_Joint_RPCA/README.md](WSL_Joint_RPCA/README.md) for the expanded WSL and
+Gemelli instructions.
+
+## Windows installer
+
+Download the installer from the
+[Functional Metabolomics Lab resources page](https://www.functional-metabolomics.com/resources),
+run it, and launch Corromics from the installed shortcut.
+
+The native Windows build supports the standard Corromics workflow. Joint-RPCA
+is excluded because the full Gemelli dependency stack is not reliably available
+as native Windows packages. Use WSL2 for Joint-RPCA.
+
+## Hosted web application
+
+For smaller datasets, open <https://corromics.gnps2.org/>. Hosted mode blocks
+runs at 1,000,000 cross-omics correlations. Use a local clone, Docker, or WSL
+for larger analyses.
+
+## Python package for pipelines
+
+The separate [`corromics_python_package`](https://github.com/abzer005/corromics_python_package)
+repository provides the app-compatible analysis functions without Streamlit.
+It is intended for Jupyter notebooks, repeatable batch processing, Snakemake or
+Nextflow workflows, servers, and HPC environments.
+
+Install it directly from GitHub:
+
+```bash
+pip install git+https://github.com/abzer005/corromics_python_package.git
+```
+
+Example:
+
+```python
+from corromics import pearson_omics, write_csv, write_graphml
+
+results = pearson_omics(omics_1, omics_2, fdr=None)
+write_csv(results, "pearson_results.csv")
+write_graphml(results, "pearson_network.graphml")
+```
+
+The package repository documents its complete API, notebooks, optional
+dependencies, testing, and output examples.
+
+## Method availability
+
+| Method or feature | Hosted web | Docker | WSL/Linux/macOS clone | Windows installer | Python package |
+|---|---:|---:|---:|---:|---:|
+| Hierarchical binning | Yes | Yes | Yes | Yes | Yes |
+| Pearson | Yes | Yes | Yes | Yes | Yes |
+| Spearman | Yes | Yes | Yes | Yes | Yes |
+| Distance correlation | Yes | Yes | Yes | Yes | Yes |
+| SparCC | Yes, subject to limits | Yes | Yes | Yes | Yes |
+| Joint-RPCA | If Gemelli backend is configured | If Gemelli backend is configured | Linux/WSL with Gemelli | No | Linux/WSL with optional Gemelli environment |
+| Target-decoy FDR | Pearson, Spearman, distance correlation | Same | Same | Same | Same helper functions |
+| CSV and GraphML export | Yes | Yes | Yes | Yes | Yes |
+
+SparCC and Joint-RPCA do not expose FDR filtering because the application does
+not provide calibrated p-values for those methods.
+
+## Hardware and memory recommendations
+
+These are operational guidelines, not strict requirements:
+
+| Workload | CPU | RAM | Notes |
+|---|---:|---:|---|
+| Hosted/small analysis | Browser only | Browser only | Server limits apply |
+| Small local analysis | 2–4 cores | 8 GB | Suitable for exploratory runs |
+| Medium local analysis | 4–8 cores | 16 GB | Recommended general configuration |
+| Large local analysis | 8+ cores | 32 GB or more | Filter features before correlation |
+| SparCC or Joint-RPCA | 8+ cores | 32 GB or more | Memory use grows rapidly with features |
+
+The supplied hosted Docker Compose configuration limits the service to 8 GB.
+When using Docker Desktop, allocate at least 8 GB to Docker for normal runs and
+more for large SparCC or Joint-RPCA analyses. The host operating system also
+needs free memory.
+
+## Large-dataset limits
+
+The number of cross-omics pairs is approximately:
 
 ```text
-http://localhost:5000
+number of omics-1 features × number of binned omics-2 features
 ```
 
----
+- Hosted/restricted mode blocks runs at 1,000,000 correlations.
+- Local mode blocks runs at 10,000,000 correlations to reduce crash risk.
+- Restricted-mode SparCC is blocked above 1,500 combined features.
+- Local SparCC begins warning above 2,500 combined features.
+- SparCC may warn or stop earlier when estimated memory pressure is high or
+  additional iterations are requested.
 
-## 2. macOS Users
+For large data, reduce the feature count using the filtering and hierarchical
+binning controls, use fewer SparCC iterations during exploration, and monitor
+available RAM.
 
-We don't have a standalone desktop app for macOS. If your analysis involves fewer than 1 million correlations, you can safely use the hosted web version of the app.
+## Troubleshooting
 
-Run Locally (Recommended for Larger Datasets)
-For heavy analyses or larger datasets, it’s best to run Corromics locally:
+### Port already in use
 
-- Clone the repository
-````
-git clone https://github.com/Functional-Metabolomics-Lab/Corromics.git
+Choose another Streamlit port:
+
+```bash
+streamlit run Home.py --server.port 8502
+```
+
+For Docker, map a different host port while keeping container port 5000:
+
+```bash
+docker run --rm -p 8502:5000 -e ENVIRONMENT_MODE=local corromics
+```
+
+Then open <http://localhost:8502>.
+
+### Docker exits or is killed
+
+- Increase Docker Desktop's memory allocation.
+- Check available disk space with `docker system df`.
+- Reduce the number of features or SparCC iterations.
+- Inspect a background container with `docker logs corromics`.
+- Rebuild after dependency changes with `docker build --no-cache -t corromics .`.
+
+### WSL problems
+
+- Check WSL with `wsl --status` in PowerShell.
+- Update it with `wsl --update`.
+- Store the repository under `~/Corromics`, not `/mnt/c/...`.
+- Rerun `bash WSL_Joint_RPCA/setup_wsl_joint_rpca.sh` if Gemelli is missing.
+- Activate `corromics-main` before launching the application.
+- If localhost forwarding fails, run `wsl --shutdown` in PowerShell, reopen
+  Ubuntu, and launch Corromics again.
+
+### Python installation errors
+
+- Confirm the interpreter with `python --version`; Python 3.11 is recommended.
+- Use `python -m pip` so dependencies install into the active interpreter.
+- Use a fresh virtual environment instead of system Python.
+- Upgrade tools with `python -m pip install --upgrade pip setuptools wheel`.
+- Install `python3-venv` on Linux if virtual-environment creation fails.
+- Native Windows Joint-RPCA dependency failures are expected; use WSL/Linux.
+
+## Upgrading
+
+Update a cloned application:
+
+```bash
 cd Corromics
-````
- - Install dependencies and launch the app. Make sure you have Python 3.11 installed (same version used in the Windows MSI build).
-```
+git pull
+source .venv/bin/activate
 pip install -r requirements.txt
-streamlit run Home.py
 ```
-Running locally avoids browser memory limits and gives full control over computation.
 
----
+Update Docker:
 
-## Closing the App
-To stop Corromics, press **Ctrl + C** in the terminal.
-Even if you close the browser, the app keeps running in the background until you stop it from the terminal.
+```bash
+cd Corromics
+git pull
+docker build --no-cache -t corromics .
+```
+
+Update the package:
+
+```bash
+pip install --upgrade --force-reinstall \
+  git+https://github.com/abzer005/corromics_python_package.git
+```
+
+## Versioning and changelog
+
+Application releases should use semantic version tags where possible and list
+user-visible changes in GitHub Releases or a changelog. For reproducible work,
+record the application commit or tag, Python version, dependency environment,
+analysis method, parameters, and random seed.
+
+**Version compatibility:** use matching Corromics application and Python-package
+versions whenever identical results are required. Differences in algorithms,
+defaults, dependencies, decoy randomization, or output schemas can change
+results between releases.
+
+## Privacy statement for the hosted app
+
+The hosted application processes uploaded data on a remote Corromics/GNPS
+server. Do not upload identifiable, confidential, regulated, or otherwise
+sensitive data unless your institution permits that processing and the hosting
+service's current privacy terms meet your requirements. For sensitive datasets,
+use a local clone, WSL, Docker, or the Python package so data remain in an
+environment you control. Browser closure should not be treated as proof of
+secure deletion; contact the hosting operator when formal retention guarantees
+are required.
+
+## Citation
+
+Until a dedicated Corromics publication or archived software DOI is available,
+cite the repository and exact version or commit used:
+
+> Functional Metabolomics Lab. Corromics.
+> <https://github.com/abzer005/Corromics>
+
+Also cite the original publication for each analysis method used. Method
+references are provided on the application homepage.
+
+## License
+
+Corromics is distributed under the BSD 3-Clause License. The license text is
+available in [assets/corromics_license.rtf](assets/corromics_license.rtf).
+
+## Contributors and contact
+
+Corromics is developed by contributors at the
+[Functional Metabolomics Lab](https://github.com/Functional-Metabolomics-Lab).
+
+- Issues and feature requests: <https://github.com/abzer005/Corromics/issues>
+- Lab website: <https://www.functional-metabolomics.com/>
+- Contributions: open an issue or pull request in this repository.
