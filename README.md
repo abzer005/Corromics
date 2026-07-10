@@ -47,52 +47,19 @@ browser does not stop the Streamlit process.
 
 ## Run with Docker
 
-Install Docker Desktop on Windows or macOS, or Docker Engine on Linux. On
-Windows, enable Docker Desktop's WSL2 backend.
+Local Docker users need these included files:
 
-All required Docker configuration is included in this repository:
+- `Dockerfile` builds the Corromics image.
+- `run_server.sh` starts the application inside the container.
+- `environment-gemelli-worker.yml` installs the Joint-RPCA/Gemelli environment
+  during the image build.
 
-- `Dockerfile` builds the Corromics application image.
-- `docker-compose.yml` contains the hosted deployment configuration.
-- `docker-compose-dev.yml` exposes port 5000 for local use.
-- `run_server.sh` starts Streamlit inside the container.
-- `environment-gemelli-worker.yml` defines the Joint-RPCA/Gemelli worker
-  environment included in the Docker image.
+The `docker-compose.yml` and `docker-compose-dev.yml` files are intended for the
+maintainers of the hosted GNPS2 deployment. Local users do not need them.
 
-```bash
-git clone https://github.com/abzer005/Corromics.git
-cd Corromics
-docker build -t corromics .
-docker run --rm \
-  -p 5000:5000 \
-  -e ENVIRONMENT_MODE=local \
-  -v "$(pwd)/logs:/app/logs" \
-  corromics
-```
-
-Open <http://localhost:5000>. Stop the foreground container with `Ctrl+C`.
-
-Run in the background:
-
-```bash
-docker run -d \
-  --name corromics \
-  -p 5000:5000 \
-  -e ENVIRONMENT_MODE=local \
-  -v "$(pwd)/logs:/app/logs" \
-  corromics
-```
-
-Stop and remove it:
-
-```bash
-docker stop corromics
-docker rm corromics
-```
-
-The repository also contains `docker-compose.yml` for the hosted deployment and
-`docker-compose-dev.yml` for its local port override. Direct `docker build` and
-`docker run` are shown above because they explicitly select local mode.
+See the [Docker Desktop user guide](Docker_User_Guide/README.md) for macOS and
+Windows installation, build and run commands, Apple Silicon instructions,
+memory guidance, upgrades, and troubleshooting.
 
 ## Run on Windows with WSL2
 
@@ -220,8 +187,7 @@ number of omics-1 features × number of binned omics-2 features
 - Local mode blocks runs at 10,000,000 correlations to reduce crash risk.
 
 For large analyses, use a local installation and reduce the feature count with
-filtering or hierarchical binning if runtime or memory use becomes high. The
-application displays a warning when a SparCC run may require too much memory.
+filtering or hierarchical binning if runtime or memory use becomes high.
 
 ## Troubleshooting
 
@@ -305,14 +271,9 @@ results.
 
 ## Privacy statement for the hosted app
 
-The hosted application processes uploaded data on a remote Corromics/GNPS
-server. Do not upload identifiable, confidential, regulated, or otherwise
-sensitive data unless your institution permits that processing and the hosting
-service's current privacy terms meet your requirements. For sensitive datasets,
-use a local clone, WSL, Docker, or the Python package so data remain in an
-environment you control. Browser closure should not be treated as proof of
-secure deletion; contact the hosting operator when formal retention guarantees
-are required.
+Files uploaded to the hosted app are processed on a remote Corromics/GNPS
+server. If data confidentiality is a concern for your project, consider running
+Corromics locally using a Git clone, WSL, Docker, or the Python package.
 
 ## Citation
 
