@@ -50,6 +50,15 @@ browser does not stop the Streamlit process.
 Install Docker Desktop on Windows or macOS, or Docker Engine on Linux. On
 Windows, enable Docker Desktop's WSL2 backend.
 
+All required Docker configuration is included in this repository:
+
+- `Dockerfile` builds the Corromics application image.
+- `docker-compose.yml` contains the hosted deployment configuration.
+- `docker-compose-dev.yml` exposes port 5000 for local use.
+- `run_server.sh` starts Streamlit inside the container.
+- `environment-gemelli-worker.yml` defines the Joint-RPCA/Gemelli worker
+  environment included in the Docker image.
+
 ```bash
 git clone https://github.com/abzer005/Corromics.git
 cd Corromics
@@ -90,6 +99,15 @@ The repository also contains `docker-compose.yml` for the hosted deployment and
 WSL2 is the recommended Windows route when Joint-RPCA/Gemelli is required.
 Native Windows and WSL are separate installations.
 
+The [`WSL_Joint_RPCA`](WSL_Joint_RPCA) folder contains everything needed for
+this setup:
+
+- [`README.md`](WSL_Joint_RPCA/README.md) provides the complete WSL instructions.
+- [`setup_wsl_joint_rpca.sh`](WSL_Joint_RPCA/setup_wsl_joint_rpca.sh) installs
+  the Corromics environment and Joint-RPCA/Gemelli dependencies.
+
+Follow that folder's README and run the included shell script as shown below.
+
 Open PowerShell as Administrator:
 
 ```powershell
@@ -114,9 +132,6 @@ streamlit run Home.py --server.port 5000 --server.address 127.0.0.1
 Open <http://localhost:5000> in the Windows browser. Keep the repository under
 the WSL home directory, such as `~/Corromics`, rather than `/mnt/c/...`; this is
 usually faster and avoids cross-filesystem permission problems.
-
-See [WSL_Joint_RPCA/README.md](WSL_Joint_RPCA/README.md) for the expanded WSL and
-Gemelli instructions.
 
 ## Windows installer
 
@@ -169,7 +184,7 @@ dependencies, testing, and output examples.
 | Spearman | Yes | Yes | Yes | Yes | Yes |
 | Distance correlation | Yes | Yes | Yes | Yes | Yes |
 | SparCC | Yes, subject to limits | Yes | Yes | Yes | Yes |
-| Joint-RPCA | If Gemelli backend is configured | If Gemelli backend is configured | Linux/WSL with Gemelli | No | Linux/WSL with optional Gemelli environment |
+| Joint-RPCA | Yes | Yes | Linux/WSL with Gemelli | No | Linux/WSL with optional Gemelli environment |
 | Target-decoy FDR | Pearson, Spearman, distance correlation | Same | Same | Same | Same helper functions |
 | CSV and GraphML export | Yes | Yes | Yes | Yes | Yes |
 
@@ -203,14 +218,10 @@ number of omics-1 features × number of binned omics-2 features
 
 - Hosted/restricted mode blocks runs at 1,000,000 correlations.
 - Local mode blocks runs at 10,000,000 correlations to reduce crash risk.
-- Restricted-mode SparCC is blocked above 1,500 combined features.
-- Local SparCC begins warning above 2,500 combined features.
-- SparCC may warn or stop earlier when estimated memory pressure is high or
-  additional iterations are requested.
 
-For large data, reduce the feature count using the filtering and hierarchical
-binning controls, use fewer SparCC iterations during exploration, and monitor
-available RAM.
+For large analyses, use a local installation and reduce the feature count with
+filtering or hierarchical binning if runtime or memory use becomes high. The
+application displays a warning when a SparCC run may require too much memory.
 
 ## Troubleshooting
 
@@ -285,15 +296,12 @@ pip install --upgrade --force-reinstall \
 
 ## Versioning and changelog
 
-Application releases should use semantic version tags where possible and list
-user-visible changes in GitHub Releases or a changelog. For reproducible work,
-record the application commit or tag, Python version, dependency environment,
-analysis method, parameters, and random seed.
+To reproduce an analysis later, record the Corromics version or Git commit
+together with the selected method, settings, and random seed.
 
-**Version compatibility:** use matching Corromics application and Python-package
-versions whenever identical results are required. Differences in algorithms,
-defaults, dependencies, decoy randomization, or output schemas can change
-results between releases.
+If the app and Python package are being compared, use versions released together
+or record the exact commits used. This is the simplest way to obtain matching
+results.
 
 ## Privacy statement for the hosted app
 
