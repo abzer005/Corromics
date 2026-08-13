@@ -113,15 +113,22 @@ def binned_transformation_section():
         f"Binned Data (at Level: {selected_level}): {binned_by_level.shape[0]} → {binned_level_filtered.shape[0]} after filtering"
     )
 
+    # Overall_sum is used only for filtering; transformations operate on sample columns.
+    binned_level_filtered = binned_level_filtered.drop(columns=["Overall_sum"], errors="ignore")
+    exclude_cols = list(set(exclude_cols) | {"feature_ID", "index"})
+    sample_cols = [
+        col for col in binned_level_filtered.select_dtypes(include=[np.number]).columns
+        if col not in exclude_cols
+    ]
+
     binned_level_filtered, method_used = apply_transformation(
         binned_level_filtered,
-        exclude_cols=["feature_ID"],
+        exclude_cols=exclude_cols,
         key_prefix="binned"
         )
 
-    # Recalculate 'Overall_Sum' after transformations
-    numeric_cols = [col for col in binned_level_filtered.columns if col not in exclude_cols]
-    binned_level_filtered['Overall_sum'] = binned_level_filtered[numeric_cols].sum(axis=1)
+    # Recalculate Overall_sum from transformed sample columns only.
+    binned_level_filtered['Overall_sum'] = binned_level_filtered[sample_cols].sum(axis=1)
 
     st.session_state['binned_omics_table'] = binned_level_filtered
 

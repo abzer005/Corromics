@@ -262,7 +262,6 @@ def apply_transformation(df: pd.DataFrame, exclude_cols=None, key_prefix=""):
             "log10",
             "CLR",
             "Relative abundance",
-            "Relative abundance (no imputation)",
         ],
         horizontal=True,
         key=f"{key_prefix}_transform_method",
@@ -270,16 +269,18 @@ def apply_transformation(df: pd.DataFrame, exclude_cols=None, key_prefix=""):
 
     st.caption(
         "- **Impute only**: replace 0s with 1.\n"
-        "- **log2 / log10 / CLR**: will internally impute 0 → 1 before log.\n"
-        "- **Relative abundance**: will impute 0 → 1, then normalize each sample.\n"
-        "- **Relative abundance (no imputation)**: just normalize, keeps 0s as 0."
+        "- **log2 / log10 / CLR**: add 1 to all values before applying the log.\n"
+        "- **Relative abundance**: normalize each sample without imputation; keeps 0s as 0."
     )
 
     df_transformed = df.copy()
 
     # Columns to actually transform (skip 'index' and any explicitly excluded)
-    exclude_set = set(exclude_cols) | {"index"}
-    cols_to_transform = [c for c in df_transformed.columns if c not in exclude_set]
+    exclude_set = set(exclude_cols) | {"index", "Overall_sum"}
+    cols_to_transform = [
+        c for c in df_transformed.select_dtypes(include=[np.number]).columns
+        if c not in exclude_set
+    ]
 
     if method == "None":
         st.info("No transformation applied.")
@@ -293,38 +294,28 @@ def apply_transformation(df: pd.DataFrame, exclude_cols=None, key_prefix=""):
 
     if method == "log2":
         if cols_to_transform:
-            X = df_transformed[cols_to_transform].replace(0, 1).astype(float)
+            X = df_transformed[cols_to_transform].astype(float) + 1
             df_transformed[cols_to_transform] = np.log2(X)
-        st.success("✅ Applied log2 (with 0 → 1 imputation).")
+        st.success("✅ Applied log2(x + 1).")
         return df_transformed, method
 
     if method == "log10":
         if cols_to_transform:
-            X = df_transformed[cols_to_transform].replace(0, 1).astype(float)
+            X = df_transformed[cols_to_transform].astype(float) + 1
             df_transformed[cols_to_transform] = np.log10(X)
-        st.success("✅ Applied log10 (with 0 → 1 imputation).")
+        st.success("✅ Applied log10(x + 1).")
         return df_transformed, method
 
     if method == "CLR":
         if cols_to_transform:
-            X = df_transformed[cols_to_transform].replace(0, 1).astype(float)
-            # geometric mean per row
-            gm = np.exp(np.log(X).mean(axis=1))
-            clr_values = np.log(X.div(gm, axis=0))
+            X = df_transformed[cols_to_transform].astype(float) + 1
+            log_X = np.log(X)
+            clr_values = log_X.subtract(log_X.mean(axis=0), axis=1)
             df_transformed[cols_to_transform] = clr_values
-        st.success("✅ Applied CLR (with 0 → 1 imputation).")
+        st.success("✅ Applied sample-wise CLR with a pseudocount of 1.")
         return df_transformed, method
 
     if method == "Relative abundance":
-        if cols_to_transform:
-            X = df_transformed[cols_to_transform].replace(0, 1).astype(float)
-            col_sums = X.sum(axis=0).replace(0, np.nan)
-            rel = X.div(col_sums, axis=1)
-            df_transformed[cols_to_transform] = rel
-        st.success("✅ Applied Relative abundance (with 0 → 1 imputation).")
-        return df_transformed, method
-
-    if method == "Relative abundance (no imputation)":
         if cols_to_transform:
             X = df_transformed[cols_to_transform].astype(float)
             col_sums = X.sum(axis=0).replace(0, np.nan)
