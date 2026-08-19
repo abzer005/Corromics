@@ -19,7 +19,7 @@ RUN pip install -r requirements.txt
 RUN conda env create -f environment-gemelli-worker.yml && conda clean -afy
 
 ENV GEMELLI_WORKER_PYTHON=/opt/conda/envs/gemelli-standalone/bin/python
-ENV ENVIRONMENT_MODE=local
+ENV ENVIRONMENT_MODE=hosted
 RUN pip install git+https://github.com/Wang-Bioinformatics-Lab/GNPSDataPackage.git
 
 COPY . /app

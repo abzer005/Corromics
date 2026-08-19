@@ -24,10 +24,9 @@ st.write(' ')
 st.subheader('CorrOmics: A Multi-Omics Association Analysis Tool')
 
 st.write("""
-         CorrOmics is a web-based application designed to uncover cross-omics association patterns between microbiome and metabolome data.
-         By integrating microbial (e.g., ASV sequences) and metabolite information, CorrOmics constructs a network where each microbial entity and metabolite is represented as a node. 
-         Edges are drawn between nodes to visualize their interactions, helping researchers discern meaningful relationships between microbial communities and metabolic profiles. 
-         This tool facilitates a deeper understanding of microbial-metabolite associations, enabling insights into functional dynamics in diverse biological systems.""")
+        CorrOmics is an interactive tool for feature-level association analysis between metabolomics and complementary omics datasets. 
+        It supports multiple association methods, metadata-based sample filtering, target-decoy FDR estimation where applicable, and network export for Cytoscape.
+        """)
 
 # Input Files
 st.markdown("""
@@ -36,19 +35,27 @@ st.markdown("""
 Corromics supports **multiple ways** of providing your data. The app will do as much
 automatic restructuring as possible depending on the chosen input method.
             """)
+
+tab1, tab2, tab3 = st.tabs(
+    [
+        "🧾 Metadata — Linking Omics Datasets",
+        "🧬 Other Omics Feature Table",
+        "⚛️ Metabolomics Feature Table",
+    ]
+)
             
-with st.expander("🧾 1. Metadata — Linking Omics Datasets", expanded=False):
-     st.markdown(
-           """
+with tab1:
+    st.markdown(""" 
+
 The metadata table is **critical** for linking metabolomics and other omics.
             
-**Required columns:**
+**Required metadata columns:**
 - `filename`  
-    - Filenames of the metabolomics feature table, should have the extensions as well (e.g. `sample1.mzML`).  
-    - These must match the sample names used in the metabolomics table  
-        (or their basenames, e.g. `spiked_1`, `spiked_1.mzML`).
+    - Should contain the metabolomics sample filenames, including file extensions where applicable (e.g. sample1.mzML).
+    - These names must match the sample identifiers used in the metabolomics table, either exactly or by basename (e.g. spiked_1 and spiked_1.mzML).
+    
 - `ATTRIBUTE_Corromics_filename`  
-    - Filenames used for the other omics quantification (e.g. FASTA/ASV/proteomics IDs).  
+    - Should contain the filenames used for the other omics quantification (e.g. FASTA/ASV/proteomics IDs).  
     - Used to map between metabolomics samples and corresponding other omics sample
 
 The app internally uses:
@@ -57,31 +64,36 @@ The app internally uses:
 
 **Optional (but recommended) metadata columns:**
 - Experimental grouping, e.g.:`Sample_type` (control, treatment, blank, QC, etc.)
-- Any other relevant attributes (timepoint, tissue, condition, batch, etc)
-These optional columns are used in the **Data Filter** to subset data for correlation analysis
+- Any other relevant attributes (timepoint, tissue, condition, batch, etc.)
+- These optional columns are used in the **Data Filter** to subset data for correlation analysis
 
 Example metadata table:
             
 |filename|ATTRIBUTE_Corromics_filename|Sample_Type|Time_Point|
 |---|---|---|---|
 |sample1.mzML|sample1.fasta|Sample|1h|
-|sample2.mzML|sample2.fasta|Sample|2h|
-|sample3.mzML|sample3.fasta|Sample|3h| 
+|sample2.mzML|sample2.fasta|Sample|2h| 
 |blank.mzML|---|Blank|N/A|
           """
      )
 
-with st.expander("🧬 2. Other Omics Feature Table (Proteomics / Genomics / ASV)", expanded=False):
-     st.markdown(
+with tab2:
+    st.markdown(
            """
-- Upload your **other omics quantification table** (ASV sequencing, proteomics, etc.).  
-- The **first column** is treated as the feature identifier, automatically renamed to `feature_ID` and used as the index.
-- All remaining columns are treated as **sample columns** or **metadata/taxonomy columns**. The app will:
-    - align sample columns with the metadata, and  
-    - detect non-sample columns (taxonomy / annotation) automatically for later filtering and ordering.
-""")
 
-with st.expander("⚛️ 3. Metabolomics Feature Table", expanded=False):
+- Upload your complementary omics quantification table, such as microbiome/ASV, proteomics,or transcriptomics.
+
+**Expected structure:**
+- features in **rows**
+- samples in **columns**
+- the **first column** contains the feature identifier
+- sample names should correspond to the identifiers provided in the metadata
+
+Additional taxonomy or annotation columns may also be included.
+"""
+)
+
+with tab3:
     st.markdown(
            """
 You can provide the metabolomics table via:

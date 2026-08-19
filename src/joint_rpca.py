@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from functools import lru_cache
 
 import pandas as pd
 
@@ -51,12 +52,22 @@ def get_joint_rpca_dependency_message():
             "See the installation instructions."
         )
 
+    if system_name == "darwin":
+        return (
+            "Joint-RPCA requires the optional Gemelli worker environment. "
+            "Open Terminal, navigate to your cloned CorrOmics repository, and run: "
+            "`conda env create -f environment-gemelli-worker.yml`. "
+            "When installation finishes, restart CorrOmics. "
+            "If the environment already exists but is not detected, "
+            "see the README for manual worker configuration."
+        )
+
     return (
         "Joint-RPCA requires the optional Gemelli worker environment. "
         "Install/configure Gemelli for this CorrOmics installation."
     )
 
-
+@lru_cache(maxsize=1)
 def get_gemelli_worker_command():
     """
     Return the local command prefix used to run Python with Gemelli available.
@@ -75,18 +86,54 @@ def get_gemelli_worker_command():
 
     worker_python = os.environ.get("GEMELLI_WORKER_PYTHON")
 
+    # 1. Explicit worker Python
     if worker_python:
         worker_python = Path(worker_python).expanduser()
+
         if not worker_python.exists():
             raise RuntimeError(f"GEMELLI_WORKER_PYTHON does not exist: {worker_python}")
+        
         if not _python_imports_gemelli(worker_python):
             raise RuntimeError(
                 f"GEMELLI_WORKER_PYTHON cannot import gemelli: {worker_python}"
             )
+        
         return [str(worker_python)]
 
+    # 2. Gemelli is installed in the Python currently running CorrOmics
     if importlib.util.find_spec("gemelli"):
         return [sys.executable]
+
+    # 3. Try the recommended standalone Conda environment
+    try:
+        completed = subprocess.run(
+            [
+                "conda",
+                "run",
+                "-n",
+                "gemelli-standalone",
+                "python",
+                "-c",
+                "import sys; print(sys.executable)",
+            ],
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=15,
+        )
+
+        if completed.returncode == 0:
+            candidate = completed.stdout.strip().splitlines()[-1].strip()
+
+            if candidate:
+                candidate = Path(candidate).expanduser()
+
+                if candidate.exists() and _python_imports_gemelli(candidate):
+                    return [str(candidate)]
+
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        # Conda is not installed/available, or discovery timed out.
+        pass
 
     return None
 
