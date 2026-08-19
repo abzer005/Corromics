@@ -14,9 +14,9 @@ st.markdown("## Please select your method for data input below.")
 # Input Selection Section
 # -------------------------------
 input_method = st.selectbox(
-    "Select Input Method", 
+    "Select Input Method",
     [
-        "Use Example Dataset",
+        "Example Dataset - CCE1706 Metabolomics",
         "Example Dataset – CorrOmics Manuscript",
         "Manual Input (Custom Data)",
         "FBMN-Stats Output (Metabolomics Table)",
@@ -44,7 +44,7 @@ if st.session_state.get('last_input_method') != input_method:
 # ============================================================
 # 1. Example Dataset (special: loads all three)
 # ============================================================
-if input_method == "Use Example Dataset":
+if input_method == "Example Dataset - CCE1706 Metabolomics":
     if (
         st.session_state['md'] is None
         and st.session_state['ft'] is None

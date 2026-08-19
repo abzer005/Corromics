@@ -20,14 +20,20 @@ installation, deployment, compatibility, and operations.
 
 | Platform or use case | Recommended route | Alternative |
 |---|---|---|
+| No installation, small datasets | Hosted web app | Local Git clone |
 | Windows, complete Linux-compatible workflow | WSL2 | Docker Desktop |
-| Windows, standard workflow | Windows installer | WSL2 or Docker Desktop |
+| Windows, standard workflow | Windows installer | Git clone, WSL2, or Docker Desktop |
 | Linux | Git clone | Docker |
 | macOS | Git clone | Docker Desktop |
-| Small datasets on any OS | Hosted web app | — |
 | Notebooks, pipelines, servers, or HPC | Python package | Editable package clone |
 
-## Run from a Git clone on Linux or macOS
+## Hosted web application
+
+For smaller datasets, open <https://corromics.gnps2.org/>. Hosted mode blocks
+runs at 1,000,000 cross-omics associations. Use a local clone, Docker, or WSL
+for larger analyses.
+
+## Run from a Git clone on macOS, Linux, or Windows
 
 Python 3.11 is recommended because it matches the application and Windows
 build.
@@ -44,6 +50,20 @@ streamlit run Home.py
 
 Open <http://localhost:8501>. Stop the application with `Ctrl+C`. Closing the
 browser does not stop the Streamlit process.
+
+### Git not installed?
+
+Check first:
+
+```bash
+git --version
+```
+
+If Git is missing:
+
+- macOS: install Apple's command line tools with `xcode-select --install`, or install Git from <https://git-scm.com/download/mac>.
+- Ubuntu/Debian Linux: run `sudo apt update && sudo apt install -y git`.
+- Windows: install Git for Windows from <https://git-scm.com/download/win>, then reopen PowerShell and rerun `git --version`.
 
 ## Run with Docker
 
@@ -110,12 +130,6 @@ The native Windows build supports the standard Corromics workflow. Joint-RPCA
 is excluded because the full Gemelli dependency stack is not reliably available
 as native Windows packages. Use WSL2 for Joint-RPCA.
 
-## Hosted web application
-
-For smaller datasets, open <https://corromics.gnps2.org/>. Hosted mode blocks
-runs at 1,000,000 cross-omics correlations. Use a local clone, Docker, or WSL
-for larger analyses.
-
 ## Python package for pipelines
 
 The separate [`corromics_python_package`](https://github.com/abzer005/corromics_python_package)
@@ -151,7 +165,7 @@ dependencies, testing, and output examples.
 | Spearman | Yes | Yes | Yes | Yes | Yes |
 | Distance correlation | Yes | Yes | Yes | Yes | Yes |
 | SparCC | Yes, subject to limits | Yes | Yes | Yes | Yes |
-| Joint-RPCA | Yes | Yes | Linux/WSL with Gemelli | No | Linux/WSL with optional Gemelli environment |
+| Joint-RPCA | Yes | Yes | macOS/Linux/WSL with optional Gemelli worker | No | Linux/WSL with optional Gemelli environment |
 | Target-decoy FDR | Pearson, Spearman, distance correlation | Same | Same | Same | Same helper functions |
 | CSV and GraphML export | Yes | Yes | Yes | Yes | Yes |
 
@@ -167,7 +181,7 @@ These are operational guidelines, not strict requirements:
 | Hosted/small analysis | Browser only | Browser only | Server limits apply |
 | Small local analysis | 2–4 cores | 8 GB | Suitable for exploratory runs |
 | Medium local analysis | 4–8 cores | 16 GB | Recommended general configuration |
-| Large local analysis | 8+ cores | 32 GB or more | Filter features before correlation |
+| Large local analysis | 8+ cores | 32 GB or more | Filter features before association analysis |
 | SparCC or Joint-RPCA | 8+ cores | 32 GB or more | Memory use grows rapidly with features |
 
 The supplied hosted Docker Compose configuration limits the service to 8 GB.
@@ -183,8 +197,8 @@ The number of cross-omics pairs is approximately:
 number of omics-1 features × number of binned omics-2 features
 ```
 
-- Hosted/restricted mode blocks runs at 1,000,000 correlations.
-- Local mode blocks runs at 10,000,000 correlations to reduce crash risk.
+- Hosted/restricted mode blocks runs at 1,000,000 associations.
+- Local mode blocks runs at 10,000,000 associations to reduce crash risk.
 
 For large analyses, use a local installation and reduce the feature count with
 filtering or hierarchical binning if runtime or memory use becomes high.
@@ -211,7 +225,7 @@ Then open <http://localhost:8502>.
 
 - Increase Docker Desktop's memory allocation.
 - Check available disk space with `docker system df`.
-- Reduce the number of features or SparCC iterations.
+- Reduce the number of features before large SparCC analyses.
 - Inspect a background container with `docker logs corromics`.
 - Rebuild after dependency changes with `docker build --no-cache -t corromics .`.
 
@@ -233,6 +247,62 @@ Then open <http://localhost:8502>.
 - Upgrade tools with `python -m pip install --upgrade pip setuptools wheel`.
 - Install `python3-venv` on Linux if virtual-environment creation fails.
 - Native Windows Joint-RPCA dependency failures are expected; use WSL/Linux.
+
+### `conda: command not found` in WSL/Linux
+
+Check whether Miniconda or another Conda installation already exists:
+
+```bash
+ls -d ~/*conda*
+```
+
+If a Conda directory is listed, activate it using the path you found. For a
+typical Miniconda install:
+
+```bash
+source ~/miniconda3/bin/activate
+conda init bash
+source ~/.bashrc
+```
+
+If Conda is not installed:
+
+```bash
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+bash Miniconda3-latest-Linux-x86_64.sh
+```
+
+Follow the installer prompts, initialize Conda when asked, then close and reopen
+the shell or run `source ~/.bashrc`.
+
+### Starting WSL after initial installation
+
+Do not rerun the setup script for routine use. Open Ubuntu and run:
+
+```bash
+cd ~/Corromics
+conda activate corromics-main
+streamlit run Home.py --server.port 5000 --server.address 127.0.0.1
+```
+
+Then open <http://localhost:5000> in the Windows browser.
+
+### Optional Joint-RPCA worker on macOS
+
+Joint-RPCA can use a separate Python environment for Gemelli. After creating a
+Gemelli-capable Conda environment, find its Python interpreter:
+
+```bash
+conda run -n gemelli-standalone python -c "import sys; print(sys.executable)"
+```
+
+Start Corromics with that interpreter path:
+
+```bash
+export GEMELLI_WORKER_PYTHON="/path/from/the/command/above"
+export CORROMICS_GEMELLI_BACKEND=local
+streamlit run Home.py
+```
 
 ## Upgrading
 
@@ -262,12 +332,18 @@ pip install --upgrade --force-reinstall \
 
 ## Versioning and changelog
 
+The application version is defined in `src/version.py`. This restructuring pass
+prepares `v1.0.0` as the proposed first formal release, pending maintainer
+review.
+
 To reproduce an analysis later, record the Corromics version or Git commit
 together with the selected method, settings, and random seed.
 
 If the app and Python package are being compared, use versions released together
 or record the exact commits used. This is the simplest way to obtain matching
 results.
+
+See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 ## Privacy statement for the hosted app
 

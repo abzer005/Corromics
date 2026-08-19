@@ -1,7 +1,7 @@
 import streamlit as st
 from streamlit_extras.stylable_container import stylable_container
 
-from src.correlation import display_correlation_message
+from src.correlation import display_correlation_message, show_association_results_table
 from src.fdr import calculate_fdr, plot_fdr_figures
 from src.molnet import generate_graphml_download_data
 from src.visualization import (
@@ -196,7 +196,7 @@ def false_discovery_rate_section(method):
         if run_fdr_button_clicked:
             correlations = st.session_state["no_correlations"]
             if correlations >= st.session_state.max_corr and not st.session_state.is_restricted_mode:
-                st.error(f"❌ Too many correlations to compute in this environment (≥ {st.session_state.max_corr}). Please clone or download the app and run it locally. This helps avoid memory crashes in the cloud environment.")
+                st.error(f"❌ Too many associations to compute in this environment (≥ {st.session_state.max_corr}). Please clone or download the app and run it locally. This helps avoid memory crashes in the cloud environment.")
                 st.stop()
 
             st.session_state["run_fdr_clicked"] = True
@@ -270,9 +270,10 @@ def false_discovery_rate_section(method):
         st.session_state["filtered_target_csv"] = filtered_target.to_csv(index=False).encode("utf-8")
 
         if st.session_state["filtered_target"] is not None:
-            st.markdown("#### Filtered Correlation Scores Based on FDR Cutoffs")
+            st.markdown("#### Filtered Association Scores Based on FDR Cutoffs")
 
             display_correlation_message(melted_target.shape[0], filtered_target.shape[0])
+            show_association_results_table(filtered_target)
             st.write("")
             if st.session_state["filtered_target_csv"] is not None:
                 _, csv_col, graphml_col, _ = st.columns([1, 1, 1, 1])
@@ -308,7 +309,7 @@ def false_discovery_rate_section(method):
         and st.session_state.get("no_correlations", 0) >= st.session_state.max_corr
         and st.session_state.is_restricted_mode
     ):
-        st.error(f"❌ As correlations exceed {st.session_state.max_corr}, no correlations were computed for this level. 💡 Please clone or download the app and run it locally. This helps avoid memory crashes in the cloud environment.")
+        st.error(f"❌ As associations exceed {st.session_state.max_corr}, no associations were computed for this level. 💡 Please clone or download the app and run it locally. This helps avoid memory crashes in the cloud environment.")
         st.stop()
 
     with stylable_container(

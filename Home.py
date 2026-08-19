@@ -1,5 +1,6 @@
 import streamlit as st
 from src.common import *
+from src.version import __version__
 import pandas as pd
 from streamlit.components.v1 import html
 
@@ -20,10 +21,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.write(' ')
-st.subheader('CorrOmics: A Multi-Omics Correlation Analysis Tool')
+st.subheader('CorrOmics: A Multi-Omics Association Analysis Tool')
 
 st.write("""
-         CorrOmics is a web-based application designed to uncover correlation patterns between microbiome and metabolome data. 
+         CorrOmics is a web-based application designed to uncover cross-omics association patterns between microbiome and metabolome data.
          By integrating microbial (e.g., ASV sequences) and metabolite information, CorrOmics constructs a network where each microbial entity and metabolite is represented as a node. 
          Edges are drawn between nodes to visualize their interactions, helping researchers discern meaningful relationships between microbial communities and metabolic profiles. 
          This tool facilitates a deeper understanding of microbial-metabolite associations, enabling insights into functional dynamics in diverse biological systems.""")
@@ -85,7 +86,7 @@ with st.expander("⚛️ 3. Metabolomics Feature Table", expanded=False):
            """
 You can provide the metabolomics table via:
 
-- **Use Example Dataset**  
+- **Example Dataset - CCE1706 Metabolomics**
   No preparation needed – preformatted demo data for exploration.
 
 - **Manual Input (Custom Data)**  
@@ -118,7 +119,7 @@ You can provide the metabolomics table via:
 
 st.subheader("Available Association Methods")
 st.markdown("""
-CorrOmics currently supports four association methods. Choose the method based on your data type and the question you want to ask.
+CorrOmics currently supports five association methods. Choose the method based on your data type and the question you want to ask.
 """)
 
 with st.expander("📈 Pearson correlation", expanded=False):
@@ -176,9 +177,9 @@ Detects both linear and nonlinear associations. Distance correlation scores are 
 
 with st.expander("🧬 SparCC", expanded=False):
     st.markdown("""
-SparCC estimates correlation scores for **compositional data**, such as microbiome count or relative-abundance tables. It is useful when standard correlations may be misleading because sample values are constrained by total sequencing depth or relative abundance.
+SparCC is a compositional log-ratio association method originally developed for within-microbiome abundance data.
 
-In CorrOmics, SparCC results should be treated as **exploratory association scores**. Calibrated SparCC p-values and target-decoy FDR filtering are not currently provided.
+In CorrOmics, SparCC results should be treated as **exploratory association scores** for metabolite-microbiome analysis because the two omics blocks originate from different measurement processes. Use non-negative, appropriately normalized inputs and interpret cross-omics SparCC associations cautiously. Calibrated SparCC p-values and target-decoy FDR filtering are not currently provided.
 
 **References**
 - Friedman J, Alm EJ. 2012. [*Inferring Correlation Networks from Genomic Survey Data*](https://doi.org/10.1371/journal.pcbi.1002687). PLOS Computational Biology.
@@ -221,22 +222,19 @@ st.write("""
 
 with st.expander("💡 Tips for Using the GraphML file in Cytoscape"):
     st.markdown("""
-    - Simply **drag and drop** the `.graphml` file into Cytoscape.
-    - Once loaded, you will see both the **edge table** and the **node table**
+    - Download GraphML from CorrOmics.
+    - In Cytoscape, use `File → Import → Network from File…` and select the `.graphml` file.
+    - Cytoscape should import the network topology together with node and edge attributes.
     ##### Node Table
-    - **Node names** are derived from the `shared_name` column by default.
-    - The `Node_Info` column contains detailed annotations:
-    - For the example dataset:
-        - **Omics_1** refers to features from the metabolomics quantification table (the first table you uploaded).
-        - **Omics_2** refers to the binned ASVs from the ASV table.
-    - You can use `Node_Info` to **color nodes** or **assign different shapes** based on node type in Cytoscape.
-    - The `Original_index` column contains the original identifiers:
-    - For metabolomics features: e.g., `ID_mz_RT`.
-    - For ASVs: longer binned names like `Bacteria_Proteobacteria_Gammaproteobacteria_Thiotrichales_Thiotrichaceae`
+    - The **Node Table** is visible in Cytoscape's Table Panel after the network loads.
+    - CorrOmics writes node attributes from the internal node table, including `Node_Info` (`Omics_1` or `Omics_2`) and `Original_index` when available.
+    - Use `Node_Info` to color nodes or assign shapes by omics block.
     
     ##### Edge Table
-    - Use the `Absolute_Correlation_Score` column to **assign weights** to edges in your network.
-    - Use the `Sign_Score` column (`-1` or `+1`) to **color positive and negative correlations** for better visual distinction.
+    - The **Edge Table** is visible in the same Table Panel after selecting the edge table tab.
+    - CorrOmics writes `Correlation_Score`, `Sign_Score`, `Absolute_Correlation_Score`, and, when present, `P_Value`, `BH_Corrected_P_Value`, `R2`, and `Method`.
+    - Use `Absolute_Correlation_Score` for edge width and `Sign_Score` or `Correlation_Score` for positive/negative color styles where the method has signed scores.
+    - CSV import is an alternative: use `File → Import → Network from File…`, select the CSV, map `Feature` and `Variable` as source/target columns, and keep other columns as edge attributes.
                  """)
 
 # Subheader and Interactive Features
@@ -256,7 +254,7 @@ check the **top-right corner** of the page. If you see the message **'RUNNING'**
 st.subheader('Citation and Further Resources')
 
 st.warning("""
-           Running **CorrOmics in the cloud** at [https://corromics.gnps2.org/](https://corromics.gnps2.org/) comes with a **restriction for over 1 million correlations**, to protect server performance. For larger datasets, we recommend running CorrOmics locally. 
+           Running **CorrOmics in the cloud** at [https://corromics.gnps2.org/](https://corromics.gnps2.org/) comes with a **restriction for over 1 million associations**, to protect server performance. For larger datasets, we recommend running CorrOmics locally.
            """)
 
 with st.expander("For Windows Users", expanded=False):
@@ -332,4 +330,4 @@ st.markdown("""
 
 # Optional: Footer
 st.markdown("---")
-st.text("CorrOmics © 2025")
+st.text(f"CorrOmics v{__version__} © 2025")

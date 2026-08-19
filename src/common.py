@@ -4,6 +4,11 @@ import io
 import uuid
 import os
 
+RESTRICTED_ENVIRONMENT_MODES = {"hosted", "restricted", "gnps", "streamlit", "production"}
+LOCAL_ENVIRONMENT_MODES = {"local", "development", "dev"}
+RESTRICTED_ASSOCIATION_LIMIT = 1_000_000
+LOCAL_ASSOCIATION_LIMIT = 10_000_000
+
 def clear_cache_button():
    if st.button("Clear Cache"):
         # Clear cache for both newer and older Streamlit versions
@@ -177,12 +182,28 @@ def download_plotly_figure(fig, filename="", col=""):
         )
 
   
+def normalize_environment_mode(environment_mode):
+    if environment_mode is None:
+        return "local"
+
+    normalized = str(environment_mode).strip().lower()
+    if normalized in RESTRICTED_ENVIRONMENT_MODES:
+        return "restricted"
+    if normalized in LOCAL_ENVIRONMENT_MODES:
+        return "local"
+
+    st.sidebar.warning(
+        f"Unknown ENVIRONMENT_MODE={environment_mode!r}; using local mode limits."
+    )
+    return "local"
+
+
 def get_max_correlation_limit():
-    limits = {
-        "restricted": 1_000_000, # Safe limit for restricted (cloud/GNPS/streamlit)
-        "local": 10_000_000,  #Safe upper limit for local mode
-    }
-    return limits["restricted"] if st.session_state.is_restricted_mode else limits["local"]
+    return (
+        RESTRICTED_ASSOCIATION_LIMIT
+        if st.session_state.is_restricted_mode
+        else LOCAL_ASSOCIATION_LIMIT
+    )
 
 
 def initialize_app():
@@ -197,15 +218,19 @@ def initialize_app():
     if environment_mode is None:
         environment_mode = st.secrets.get("environment", {}).get("mode", None)
 
-    if environment_mode is None:
-        environment_mode = "local"
-    
+    environment_mode = normalize_environment_mode(environment_mode)
+
     # Store in session state for global access
-    st.session_state.is_restricted_mode = environment_mode in ["gnps", "streamlit"]
+    st.session_state.environment_mode = environment_mode
+    st.session_state.is_restricted_mode = environment_mode == "restricted"
 
     # Optional: warning if restricted mode is active
     with st.sidebar:
         if st.session_state.is_restricted_mode:
-            st.warning(f"⚠️ Restricted mode is active: \nMax correlation limit: **{get_max_correlation_limit():,}**")
+            st.warning(
+                f"Hosted mode · limit: **{get_max_correlation_limit():,} associations**"
+            )
         else:
-            st.success(f"App running in **local mode**.\nMax correlation limit: **{get_max_correlation_limit():,}**")
+            st.success(
+                f"Local mode · limit: **{get_max_correlation_limit():,} associations**"
+            )

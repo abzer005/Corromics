@@ -30,9 +30,18 @@ def render_dataframe_preview(df, label, key, preview_rows=10):
     """Render a cheap preview by default; full tables can be large on Docker/GNPS."""
     st.caption(f"{df.shape[0]:,} rows x {df.shape[1]:,} columns")
     if st.checkbox("Show full table", key=f"{key}_show_full"):
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(
+            df,
+            use_container_width=True,
+            column_config=numeric_table_column_config(df),
+        )
     else:
-        st.dataframe(df.head(preview_rows), use_container_width=True)
+        preview_df = df.head(preview_rows)
+        st.dataframe(
+            preview_df,
+            use_container_width=True,
+            column_config=numeric_table_column_config(preview_df),
+        )
         if len(df) > preview_rows:
             st.caption(f"Showing first {preview_rows:,} rows of {label}.")
 
@@ -144,7 +153,7 @@ def binned_transformation_section():
 hierarchical_binning_section()
 binned_transformation_section()
 
-st.write("## Correlation Estimate & Feature Filtering")   
+st.write("## Association Estimate & Feature Filtering")
 #####################################################################################
 
 if (
@@ -324,11 +333,24 @@ def target_decoy_generation_section():
         st.session_state['target_omics'] = gen_ft
         st.session_state['decoy_omics'] = decoy_gen_df
 
-        # Display the combined DataFrame in Streamlit
-        with st.expander(f"Target Dataframe {target_df.shape}"):
+        target_tab, decoy_tab = st.tabs(["Target dataframe", "Decoy dataframe"])
+        with target_tab:
+            st.download_button(
+                label="Download Full Target Dataframe as CSV",
+                data=target_df.to_csv(index=True).encode("utf-8"),
+                file_name="target_dataframe.csv",
+                mime="text/csv",
+                key="download_full_target_dataframe_csv",
+            )
             render_dataframe_preview(target_df, "target dataframe", "target_dataframe")
-
-        with st.expander(f"Decoy Dataframe {decoy_df.shape}"):
+        with decoy_tab:
+            st.download_button(
+                label="Download Full Decoy Dataframe as CSV",
+                data=decoy_df.to_csv(index=True).encode("utf-8"),
+                file_name="decoy_dataframe.csv",
+                mime="text/csv",
+                key="download_full_decoy_dataframe_csv",
+            )
             render_dataframe_preview(decoy_df, "decoy dataframe", "decoy_dataframe")
 
         st.session_state['target_dataframe'] = target_df
@@ -340,10 +362,10 @@ def target_decoy_generation_section():
 
 target_decoy_generation_section()
 
-######## Run Correlation Analysis -------------------------------------------------------
+######## Run Association Analysis -------------------------------------------------------
 st.markdown("<br>", unsafe_allow_html=True)
 st.session_state["method"] = st.radio(
-    "Choose correlation method",
+    "Choose association method",
     options=[
         "pearson",
         "spearman",
@@ -354,7 +376,7 @@ st.session_state["method"] = st.radio(
     format_func=lambda x: {
         "pearson": "Pearson (linear relationship)",
         "spearman": "Spearman (monotonic relationship)",
-        "sparcc": "SparCC (compositional correlation)",
+        "sparcc": "SparCC (compositional correlation coefficient)",
         "distance_corr": "Distance correlation (non-linear relationships)",
         "joint_rpca": "Joint-RPCA (loading-space associations)",
     }[x],
@@ -363,7 +385,7 @@ st.session_state["method"] = st.radio(
 
     Spearman: Rank-based correlation for monotonic relationships.
     
-    SparCC: Designed for compositional microbiome data.
+    SparCC: Compositional log-ratio association method for non-negative normalized data.
 
     Distance correlation: Detects non-linear dependencies between variables.
 
@@ -376,8 +398,6 @@ st.session_state["method"] = st.radio(
 
 allowed_methods = ["pearson", "spearman", "sparcc", "distance_corr", "joint_rpca"]
 method = st.session_state["method"]
-sparcc_blocked = False
-sparcc_size = None
 
 if "last_method" not in st.session_state:
     st.session_state["last_method"] = method
@@ -391,68 +411,18 @@ if st.session_state["last_method"] != method:
 
 if method == "sparcc":
     st.warning(
-        "SparCC is intended for **compositional datasets**, such as microbiome count or relative-abundance tables. "
-        "It estimates correlations while accounting for the constant-sum/compositional structure of the data. "
-        "It is not recommended for general metabolomics or proteomics intensity tables unless those data have been "
-        "processed into an appropriate compositional representation."
+        "SparCC is a compositional log-ratio association method originally developed for within-microbiome "
+        "abundance data. In CorrOmics, its use for metabolite-microbiome associations is exploratory because "
+        "the two omics blocks originate from different measurement processes. Use non-negative, appropriately "
+        "normalized inputs and interpret cross-omics SparCC associations cautiously."
     )
 
-    sparcc_iter = st.number_input(
-        "SparCC iterations",
-        min_value=1,
-        max_value=5,
-        value=1,
-        step=1,
-        key="sparcc_iter",
-        help="Higher iterations repeat the SparCC estimation and can improve stability, but runtime increases with each iteration."
-    )
-
-    if "metabolome_ft" in st.session_state and "target_omics" in st.session_state:
-        sparcc_size = assess_sparcc_run_size(
-            st.session_state["metabolome_ft"],
-            st.session_state["target_omics"],
-            st.session_state.is_restricted_mode,
-            sparcc_iter,
-        )
-
-        if sparcc_size["blocked"]:
-            sparcc_blocked = True
-            st.error(
-                "SparCC is disabled for this dataset in the web app because the combined feature count is too large.\n\n"
-                f"- SparCC memory risk: **{sparcc_size['risk']}**\n"
-                f"- Combined features: **{sparcc_size['total_features']:,}**\n"
-                f"- Iterations selected: **{sparcc_iter}**\n"
-                f"- Web app limit: **{sparcc_size['restricted_limit']:,} combined features**\n"
-                f"- Available memory in this environment: **{sparcc_size['available_memory_gb']:.2f} GB**\n\n"
-                "SparCC can use many times more memory than the base matrix size during processing. "
-                "Please reduce the number of features or run the app locally."
-            )
-        elif sparcc_size["warn"] or sparcc_size["risk"] != "Low":
-            st.warning(
-                "This SparCC run may use substantial memory and could fail on machines with limited RAM.\n\n"
-                f"- SparCC memory risk: **{sparcc_size['risk']}**\n"
-                f"- Combined features: **{sparcc_size['total_features']:,}**\n"
-                f"- Iterations selected: **{sparcc_iter}**\n"
-                f"- Local warning threshold: **{sparcc_size['local_warning_limit']:,} combined features**\n"
-                f"- Available memory in this environment: **{sparcc_size['available_memory_gb']:.2f} GB**\n\n"
-                "SparCC can use many times more memory than the base matrix size during processing. "
-                "Consider reducing iterations or filtering features before running SparCC."
-            )
-
-    if sparcc_size is not None:
-        st.info(
-            f"SparCC iterations selected: **{sparcc_iter}**. "
-            "More iterations can make the SparCC estimate more stable, but they also make the run slower. "
-            "If the app becomes slow or fails, try reducing the number of iterations or filtering features first."
-        )
+    sparcc_iter = 1
 
 if method == "joint_rpca":
     joint_rpca_backend = os.environ.get("CORROMICS_GEMELLI_BACKEND", "disabled").strip().lower()
     if joint_rpca_backend == "disabled":
-        st.warning(
-            "joint-RPCA is disabled in the native Windows installation. "
-            "To use joint-RPCA, run Corromics from WSL/Linux with Gemelli installed."
-        )
+        st.warning(get_joint_rpca_dependency_message())
         st.stop()
 
     st.warning(
@@ -464,7 +434,7 @@ if method == "joint_rpca":
     with joint_rpca_col1:
         joint_rpca_min_feature_frequency = st.number_input(
             "Minimum feature frequency",
-            min_value=1,
+            min_value=0,
             value=2,
             step=1,
             key="joint_rpca_min_feature_frequency",
@@ -484,7 +454,7 @@ if method == "joint_rpca":
 if method not in allowed_methods:
     st.info(f"⚠️ **{method}** correlation is not implemented yet. ")
 
-# Custom-Styled "Run Correlation Analysis" Button
+# Custom-Styled "Run Association Analysis" Button
 with stylable_container(
     key="run_correlation_container",
     css_styles="""
@@ -492,13 +462,12 @@ with stylable_container(
     button:hover { background-color: #003043; transform: scale(1.05); }
     button:disabled { background-color: #A9A9A9;  cursor: not-allowed;}
     """):
-    run_corr_clicked = st.button("Run Correlation Analysis", 
+    run_corr_clicked = st.button("Run Association Analysis",
                                  key="run_correlation", 
                                  disabled= st.session_state.get('no_correlations', 0) >= st.session_state.max_corr
-                                 or method not in allowed_methods
-                                 or sparcc_blocked)
+                                 or method not in allowed_methods)
 
-# Perform Correlation Analysis Logic
+# Perform Association Analysis Logic
 if all(key in st.session_state for key in ['target_dataframe', 'decoy_dataframe', 'metabolome_ft', 'binned_omics_table', 'target_omics', 'decoy_omics']):
     
     # Estimate total number of correlations
@@ -510,11 +479,11 @@ if all(key in st.session_state for key in ['target_dataframe', 'decoy_dataframe'
 
         if not st.session_state.is_restricted_mode and correlations >= 10_000_000:
             st.error(
-                "❌ Too many correlations to compute in this environment — more than **10 million**.\n\n"
+                "❌ Too many associations to compute in this environment — more than **10 million**.\n\n"
                 "This could crash your local memory and force you to quit other apps.💡 Please reduce the number of features or samples to perform a meaningful analysis and avoid memory overload."
             )
         elif st.session_state.is_restricted_mode and correlations >= 1_000_000:
-            st.error(f"❌ Too many correlations to compute in this environment (≥ {st.session_state.max_corr}). Please clone the app and run it locally. This helps avoid memory crashes in the cloud environment.")
+            st.error(f"❌ Too many associations to compute in this environment (≥ {st.session_state.max_corr}). Please clone the app and run it locally. This helps avoid memory crashes in the cloud environment.")
             st.stop()
         else:
             st.session_state["processing"] = True  # Set processing flag
@@ -578,22 +547,7 @@ if all(key in st.session_state for key in ['target_dataframe', 'decoy_dataframe'
         try:
             metabolome_ft = st.session_state["metabolome_ft"].copy()
             target_omics = st.session_state["target_omics"].copy()
-            iter_num = st.session_state.get("sparcc_iter", 1)
-
-            sparcc_size = assess_sparcc_run_size(
-                metabolome_ft,
-                target_omics,
-                st.session_state.is_restricted_mode,
-                iter_num,
-            )
-            if sparcc_size["blocked"]:
-                st.session_state["processing"] = False
-                st.error(
-                    "SparCC is disabled for this dataset in the web app because the combined feature count is too large. "
-                    f"The web app limit is {sparcc_size['restricted_limit']:,} combined features. "
-                    "Please reduce the number of features or run the app locally."
-                )
-                st.stop()
+            iter_num = 1
 
             # --- UI placeholders for live progress ---
             status_text = st.empty()
@@ -749,10 +703,7 @@ if all(key in st.session_state for key in ['target_dataframe', 'decoy_dataframe'
     elif run_corr_clicked and method == "joint_rpca":
         joint_rpca_backend = os.environ.get("CORROMICS_GEMELLI_BACKEND", "disabled").strip().lower()
         if joint_rpca_backend == "disabled":
-            st.warning(
-                "joint-RPCA is disabled in the native Windows installation. "
-                "To use joint-RPCA, run Corromics from WSL/Linux with Gemelli installed."
-            )
+            st.warning(get_joint_rpca_dependency_message())
             st.stop()
 
         st.session_state["processing"] = True
@@ -807,7 +758,7 @@ if (
     st.session_state.get("processing", False)
     and st.session_state.get("processing_method") == st.session_state.get("method")
 ):
-    st.warning("⏳ Correlation analysis running… Please wait.")
+    st.warning("⏳ Association analysis running… Please wait.")
 
 
 # Check if correlation results are available before processing
@@ -849,15 +800,22 @@ if ("target_results" in st.session_state
         decoy_csv_data = convert_df_to_csv(melted_decoy) if has_decoy_downloads else None
 
     # Display or provide download option based on size
+        scores_tab_labels = ["Target association scores"]
+        if has_decoy_results:
+            scores_tab_labels.append("Decoy association scores")
+        score_tabs = st.tabs(scores_tab_labels)
+
+        with score_tabs[0]:
+            st.caption(f"{melted_target.shape[0]:,} rows x {melted_target.shape[1]:,} columns")
         if df_target_size <= 200:
-            with st.expander(f"Correlation Scores of Target Dataframe {melted_target.shape}"):
-                st.dataframe(melted_target)
+            with score_tabs[0]:
+                show_association_results_table(melted_target)
                 target_download_col1, target_download_col2 = st.columns(2)
                 with target_download_col1:
                     st.download_button(
-                        label="Download Target DataFrame as CSV",
+                        label="Download Target Results as CSV",
                         data=target_csv_data,
-                        file_name="target_correlation_results.csv",
+                        file_name="target_association_results.csv",
                         mime="text/csv"
                     )
                 with target_download_col2:
@@ -865,38 +823,38 @@ if ("target_results" in st.session_state
                         st.session_state.get("node_table"),
                         melted_target,
                         method,
-                        "target_correlation_network.graphml",
+                        "target_association_network.graphml",
                         "target_graphml_unfiltered",
                     )
         else:
-            st.warning(f"⚠️ The correlation dataframes are too large to display (**{df_target_size:.1f} MB**). Download them instead.")
+            st.warning(f"⚠️ The association result tables are too large to display (**{df_target_size:.1f} MB**). Download them instead.")
             
-            corr_c1, corr_c2 = st.columns(2)
-            with corr_c1:
+            with score_tabs[0]:
                 st.download_button(
-                    label="Download Target Correlation Results (CSV)",
+                    label="Download Target Association Results (CSV)",
                     data=target_csv_data,
-                    file_name="target_correlation_results.csv",
+                    file_name="target_association_results.csv",
                     mime="text/csv"
                 )
                 render_correlation_graphml_download(
                     st.session_state.get("node_table"),
                     melted_target,
                     method,
-                    "target_correlation_network.graphml",
+                    "target_association_network.graphml",
                     "target_graphml_unfiltered_large",
                 )
 
         if has_decoy_results and df_decoy_size <= 200:
-            with st.expander(f"Correlation Scores of Decoy Dataframe {melted_decoy.shape}"):
-                st.dataframe(melted_decoy)
+            with score_tabs[1]:
+                st.caption(f"{melted_decoy.shape[0]:,} rows x {melted_decoy.shape[1]:,} columns")
+                show_association_results_table(melted_decoy)
                 if has_decoy_downloads:
                     decoy_download_col1, decoy_download_col2 = st.columns(2)
                     with decoy_download_col1:
                         st.download_button(
-                            label="Download Decoy Correlation Results (CSV)",
+                            label="Download Decoy Association Results (CSV)",
                             data=decoy_csv_data,
-                            file_name="decoy_correlation_results.csv",
+                            file_name="decoy_association_results.csv",
                             mime="text/csv"
                         )
                     with decoy_download_col2:
@@ -904,25 +862,24 @@ if ("target_results" in st.session_state
                             st.session_state.get("node_table"),
                             melted_decoy,
                             method,
-                            "decoy_correlation_network.graphml",
+                            "decoy_association_network.graphml",
                             "decoy_graphml_unfiltered",
                         )
         elif has_decoy_results:
-            if 'corr_c1' not in locals():  # use same row if available
-                corr_c1, corr_c2 = st.columns(2)
-            with corr_c2:
+            with score_tabs[1]:
+                st.caption(f"{melted_decoy.shape[0]:,} rows x {melted_decoy.shape[1]:,} columns")
                 if has_decoy_downloads:
                     st.download_button(
-                        label="Download Decoy Correlation Results (CSV)",
+                        label="Download Decoy Association Results (CSV)",
                         data=decoy_csv_data,
-                        file_name="decoy_correlation_results.csv",
+                        file_name="decoy_association_results.csv",
                         mime="text/csv"
                     )
                     render_correlation_graphml_download(
                         st.session_state.get("node_table"),
                         melted_decoy,
                         method,
-                        "decoy_correlation_network.graphml",
+                        "decoy_association_network.graphml",
                         "decoy_graphml_unfiltered_large",
                     )
 

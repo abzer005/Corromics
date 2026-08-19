@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import os
+import platform
 import subprocess
 import sys
 import tempfile
@@ -15,6 +16,45 @@ JOINT_RPCA_OMICS_PREFIX = "omics__"
 
 if "CORROMICS_GEMELLI_BACKEND" not in os.environ:
     os.environ["CORROMICS_GEMELLI_BACKEND"] = "disabled" if os.name == "nt" else "local"
+
+
+def _environment_mode():
+    return os.environ.get("ENVIRONMENT_MODE", "local").strip().lower()
+
+
+def _is_restricted_deployment():
+    return _environment_mode() in {"hosted", "restricted", "gnps", "streamlit", "production"}
+
+
+def _python_imports_gemelli(python_executable):
+    completed = subprocess.run(
+        [str(python_executable), "-c", "import gemelli"],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    return completed.returncode == 0
+
+
+def get_joint_rpca_dependency_message():
+    if os.name == "nt":
+        return "Joint-RPCA is not supported by the native Windows installation. Use WSL2 or Docker Desktop."
+
+    if _is_restricted_deployment():
+        return "Joint-RPCA requires the configured Gemelli worker environment for this deployment. Contact the deployment maintainer."
+
+    system_name = platform.system().lower()
+    if system_name == "darwin":
+        return (
+            "Joint-RPCA requires the optional Gemelli worker environment. "
+            "Create/configure the Gemelli environment and point CorrOmics to its Python interpreter. "
+            "See the installation instructions."
+        )
+
+    return (
+        "Joint-RPCA requires the optional Gemelli worker environment. "
+        "Install/configure Gemelli for this CorrOmics installation."
+    )
 
 
 def get_gemelli_worker_command():
@@ -32,6 +72,18 @@ def get_gemelli_worker_command():
             f"Unsupported CORROMICS_GEMELLI_BACKEND={backend!r}. "
             "Use 'disabled' or 'local'."
         )
+
+    worker_python = os.environ.get("GEMELLI_WORKER_PYTHON")
+
+    if worker_python:
+        worker_python = Path(worker_python).expanduser()
+        if not worker_python.exists():
+            raise RuntimeError(f"GEMELLI_WORKER_PYTHON does not exist: {worker_python}")
+        if not _python_imports_gemelli(worker_python):
+            raise RuntimeError(
+                f"GEMELLI_WORKER_PYTHON cannot import gemelli: {worker_python}"
+            )
+        return [str(worker_python)]
 
     if importlib.util.find_spec("gemelli"):
         return [sys.executable]
@@ -60,9 +112,7 @@ def check_joint_rpca_dependencies():
         return missing
 
     if not worker_cmd:
-        missing.append(
-            "Gemelli worker not found. Install gemelli in this active Linux/WSL environment."
-        )
+        missing.append(get_joint_rpca_dependency_message())
 
     return missing
 
@@ -185,10 +235,7 @@ def run_joint_rpca_for_omics_pair(
 ):
     missing = check_joint_rpca_dependencies()
     if missing:
-        raise ImportError(
-            "Joint-RPCA requires Gemelli in the active local Linux/WSL environment: "
-            + ", ".join(missing)
-        )
+        raise ImportError(", ".join(missing))
 
     metabolome_ft = metabolome_ft.copy()
     omics_ft = omics_ft.copy()

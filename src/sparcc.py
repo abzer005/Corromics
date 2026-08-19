@@ -7,12 +7,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import psutil
-
-SPARCC_RESTRICTED_MAX_FEATURES = 1500
-SPARCC_LOCAL_WARNING_FEATURES = 2500
-SPARCC_BASE_OVERHEAD_FACTOR = 20
-SPARCC_ITERATION_OVERHEAD_FACTOR = 5
 
 def get_sparcc_script_path() -> Path:
     """
@@ -27,50 +21,6 @@ def get_sparcc_script_path() -> Path:
 
     return sparcc_path
 
-
-def assess_sparcc_run_size(metabolome_ft, omics_ft, is_restricted_mode, iter_num=1):
-    """
-    Estimate SparCC matrix size and decide whether to warn or block the run.
-    """
-    total_features = metabolome_ft.shape[0] + omics_ft.shape[0]
-    matrix_gb = (total_features ** 2 * 8) / (1024 ** 3)
-    available_memory_gb = psutil.virtual_memory().available / (1024 ** 3)
-    memory_pressure_gb = matrix_gb * (
-        SPARCC_BASE_OVERHEAD_FACTOR + (iter_num * SPARCC_ITERATION_OVERHEAD_FACTOR)
-    )
-    memory_pressure_ratio = (
-        memory_pressure_gb / available_memory_gb
-        if available_memory_gb > 0
-        else float("inf")
-    )
-
-    if (
-        is_restricted_mode and total_features > SPARCC_RESTRICTED_MAX_FEATURES
-        or memory_pressure_ratio >= 0.70
-        or (total_features > SPARCC_LOCAL_WARNING_FEATURES and iter_num >= 3)
-    ):
-        risk = "High"
-    elif (
-        memory_pressure_ratio >= 0.35
-        or total_features > SPARCC_LOCAL_WARNING_FEATURES
-        or iter_num >= 4
-    ):
-        risk = "Medium"
-    else:
-        risk = "Low"
-
-    return {
-        "total_features": total_features,
-        "matrix_gb": matrix_gb,
-        "available_memory_gb": available_memory_gb,
-        "memory_pressure_gb": memory_pressure_gb,
-        "memory_pressure_ratio": memory_pressure_ratio,
-        "risk": risk,
-        "blocked": is_restricted_mode and total_features > SPARCC_RESTRICTED_MAX_FEATURES,
-        "warn": total_features > SPARCC_LOCAL_WARNING_FEATURES,
-        "restricted_limit": SPARCC_RESTRICTED_MAX_FEATURES,
-        "local_warning_limit": SPARCC_LOCAL_WARNING_FEATURES,
-    }
 
 @lru_cache(maxsize=1)
 def load_sparcc3_module(sparcc3_script_path: str | Path):
@@ -129,7 +79,8 @@ def compute_sparcc3_corr(
         corr_values, _ = sparcc3_module.main(
             counts_samples_by_features,
             method="SparCC",
-            iter=iter_num,
+            iter=1,
+            norm="normalize",
             oprint=False,
         )
         return pd.DataFrame(corr_values, index=feature_labels, columns=feature_labels)

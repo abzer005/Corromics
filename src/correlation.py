@@ -218,12 +218,9 @@ def melt_correlation_results(results, method=None):
         df["Variable"] = asv_name  # ASV name as Variable
         if method is not None:
             df["Method"] = method
-        df["P-value"] = df["P-value"].apply(
-            lambda x: f"{x:.2e}" if pd.notnull(x) else np.nan
-            )
-        df["BH-Corrected P-Value"] = df["BH-Corrected P-Value"].apply(
-            lambda x: f"{x:.2e}" if pd.notnull(x) else np.nan
-            )
+        for numeric_col in ["Estimate", "P-value", "BH-Corrected P-Value", "R2"]:
+            if numeric_col in df.columns:
+                df[numeric_col] = pd.to_numeric(df[numeric_col], errors="coerce")
         
         # Rearrange columns so Feature and Variable are first
         ordered_columns = ["Feature", "Variable"]
@@ -239,6 +236,40 @@ def melt_correlation_results(results, method=None):
     final_df = pd.concat(melted_results, axis=0, ignore_index=True)
 
     return final_df
+
+
+def numeric_table_column_config(df, format="%.2e"):
+    if not isinstance(df, pd.DataFrame):
+        return {}
+
+    return {
+        column: st.column_config.NumberColumn(str(column), format=format)
+        for column in df.select_dtypes(include=[np.number]).columns
+    }
+
+
+def association_table_column_config(df=None):
+    if df is not None:
+        return numeric_table_column_config(df)
+
+    return {
+        "Estimate": st.column_config.NumberColumn("Estimate", format="%.2e"),
+        "P-value": st.column_config.NumberColumn("P-value", format="%.2e"),
+        "BH-Corrected P-Value": st.column_config.NumberColumn(
+            "BH-Corrected P-Value",
+            format="%.2e",
+        ),
+        "R2": st.column_config.NumberColumn("R2", format="%.2e"),
+    }
+
+
+def show_association_results_table(df, **kwargs):
+    st.dataframe(
+        df,
+        use_container_width=True,
+        column_config=association_table_column_config(df),
+        **kwargs,
+    )
 
 
 def apply_transformation(df: pd.DataFrame, exclude_cols=None, key_prefix=""):
@@ -262,6 +293,7 @@ def apply_transformation(df: pd.DataFrame, exclude_cols=None, key_prefix=""):
             "log10",
             "CLR",
             "Relative abundance",
+            "Relative abundance (+1 pseudocount)",
         ],
         horizontal=True,
         key=f"{key_prefix}_transform_method",
@@ -270,7 +302,8 @@ def apply_transformation(df: pd.DataFrame, exclude_cols=None, key_prefix=""):
     st.caption(
         "- **Impute only**: replace 0s with 1.\n"
         "- **log2 / log10 / CLR**: add 1 to all values before applying the log.\n"
-        "- **Relative abundance**: normalize each sample without imputation; keeps 0s as 0."
+        "- **Relative abundance**: normalize each sample without imputation; keeps 0s as 0. \n"
+        "- **Relative abundance (+1 pseudocount)**: add 1 to all abundances, then normalize each sample; recommended for SparCC when zeros are present."
     )
 
     df_transformed = df.copy()
@@ -324,6 +357,16 @@ def apply_transformation(df: pd.DataFrame, exclude_cols=None, key_prefix=""):
         st.success("✅ Applied Relative abundance (no imputation).")
         return df_transformed, method
 
+    if method == "Relative abundance (+1 pseudocount)":
+        if cols_to_transform:
+            X = df_transformed[cols_to_transform].astype(float) + 1
+            col_sums = X.sum(axis=0).replace(0, np.nan)
+            rel = X.div(col_sums, axis=1)
+            df_transformed[cols_to_transform] = rel
+
+        st.success("✅ Applied Relative abundance after adding pseudocount 1.")
+        return df_transformed, method
+
     # Fallback (should never hit)
     st.warning("No valid transformation matched. Returning original data.")
     return df, "None"
@@ -352,7 +395,7 @@ def estimate_run_time(metabolome_df, genome_df):
     correlations = metabolome_df.shape[0] * genome_df.shape[0]
 
     # Create the base message
-    message = f"🔹 Estimated correlations: <b>{correlations:,}</b><br><br>"
+    message = f"🔹 Estimated associations: <b>{correlations:,}</b><br><br>"
 
     # Styling for the message box (centered content)
     box_style = """
@@ -417,10 +460,10 @@ def warn_large_correlation_run(correlations, metabolome_count, omics_count):
         return
 
     st.warning(
-        "Large correlation run detected.\n\n"
+        "Large association run detected.\n\n"
         f"- First omics features: **{metabolome_count:,}**\n"
         f"- Second omics features: **{omics_count:,}**\n"
-        f"- Pairwise correlations: **{correlations:,}**\n\n"
+        f"- Pairwise associations: **{correlations:,}**\n\n"
         "This run may take a long time and use substantial memory. "
         "Consider applying the filters below before running Pearson/Spearman correlations."
     )

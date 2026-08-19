@@ -281,7 +281,7 @@ Open <http://localhost:8502>.
 - Close other memory-intensive applications.
 - Increase the resources available to Docker Desktop where supported.
 - Reduce the number of omics features using filtering or hierarchical binning.
-- Use fewer SparCC iterations during exploratory analyses.
+- Filter features before large SparCC analyses.
 - Restart Docker Desktop after changing its resources.
 
 Docker's current resource controls differ between macOS and the Windows WSL2
